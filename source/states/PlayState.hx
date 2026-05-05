@@ -1350,6 +1350,8 @@ class PlayState extends MusicBeatState
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
 		var ghostNotesCaught:Int = 0;
 		var daBpm:Float = Conductor.bpm;
+		var noteLookup:Map<String, Note> = new Map<String, Note>();
+		var noteTypeLookup:Map<String, Bool> = new Map<String, Bool>();
 	
 		for (section in sectionsData)
 		{
@@ -1368,23 +1370,19 @@ class PlayState extends MusicBeatState
 
 				var gottaHitNote:Bool = (songNotes[1] < totalColumns);
 
-				if (i != 0) {
-					// CLEAR ANY POSSIBLE GHOST NOTES
-					for (evilNote in unspawnNotes) {
-						var matches: Bool = (noteColumn == evilNote.noteData && gottaHitNote == evilNote.mustPress && evilNote.noteType == noteType);
-						if (matches && Math.abs(spawnTime - evilNote.strumTime) < flixel.math.FlxMath.EPSILON) {
-							if (evilNote.tail.length > 0)
-								for (tail in evilNote.tail)
-								{
-									tail.destroy();
-									unspawnNotes.remove(tail);
-								}
-							evilNote.destroy();
-							unspawnNotes.remove(evilNote);
-							ghostNotesCaught++;
-							//continue;
+				var noteKey:String = noteColumn + "|" + gottaHitNote + "|" + noteType + "|" + spawnTime;
+				var ghostNote:Note = noteLookup.get(noteKey);
+				if (ghostNote != null)
+				{
+					if (ghostNote.tail.length > 0)
+						for (tail in ghostNote.tail)
+						{
+							tail.destroy();
+							unspawnNotes.remove(tail);
 						}
-					}
+					ghostNote.destroy();
+					unspawnNotes.remove(ghostNote);
+					ghostNotesCaught++;
 				}
 
 				var swagNote:Note = new Note(spawnTime, noteColumn, oldNote);
@@ -1457,8 +1455,12 @@ class PlayState extends MusicBeatState
 						swagNote.x += FlxG.width / 2 + 25;
 					}
 				}
-				if(!noteTypes.contains(swagNote.noteType))
+				if(!noteTypeLookup.exists(swagNote.noteType))
+				{
+					noteTypeLookup.set(swagNote.noteType, true);
 					noteTypes.push(swagNote.noteType);
+				}
+				noteLookup.set(noteKey, swagNote);
 
 				oldNote = swagNote;
 			}
