@@ -1,131 +1,125 @@
 name: SHJR Manual Release
 
 on:
-workflow_dispatch:
-inputs:
-tag_name:
-description: "Release version (example: v1.0.0)"
-required: true
-type: string
-prerelease:
-description: "Is this a prerelease?"
-required: true
-type: boolean
-custom_message:
-description: "Optional release message"
-required: false
-type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release version (example: v1.0.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Is this a prerelease?"
+        required: true
+        type: boolean
+      custom_message:
+        description: "Optional release message"
+        required: false
+        type: string
 
 permissions:
-contents: write
+  contents: write
 
 env:
-TAG_NAME: ${{ github.event.inputs.tag_name }}
+  TAG_NAME: ${{ github.event.inputs.tag_name }}
 
 jobs:
+  create-tag:
+    name: Create Git Tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-create-tag:
-name: Create Git Tag
-runs-on: ubuntu-latest
-steps:
-- uses: actions/checkout@v4
+      - name: Fetch tags
+        run: git fetch --tags
 
-```
-  - name: Fetch tags
-    run: git fetch --tags
+      - name: Create tag
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag $TAG_NAME || echo "Tag exists"
+          git push origin $TAG_NAME || echo "Already pushed"
 
-  - name: Create tag
-    run: |
-      git config user.name "${{ github.actor }}"
-      git config user.email "${{ github.actor }}@users.noreply.github.com"
-      git tag $TAG_NAME || echo "Tag exists"
-      git push origin $TAG_NAME || echo "Already pushed"
-```
+  build:
+    name: Build SHJR
+    needs: create-tag
+    uses: ./.github/workflows/main.yml
+    secrets: inherit
 
-build:
-name: Build SHJR
-needs: create-tag
-uses: ./.github/workflows/main.yml
-secrets: inherit
+  release-linux:
+    name: Upload Linux Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linuxBuild
+          path: build
 
-release-linux:
-name: Upload Linux Build
-needs: build
-runs-on: ubuntu-latest
-steps:
-- uses: actions/download-artifact@v4
-with:
-name: linuxBuild
-path: build
+      - name: Zip Linux build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          7z a SHJR-linux.zip ./build/*
 
-```
-  - name: Zip Linux build
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y p7zip-full
-      7z a SHJR-linux.zip ./build/*
+      - name: Upload Release Asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TAG_NAME }}
+          file: SHJR-linux.zip
+          asset_name: SHJR-linux.zip
+          draft: true
+          prerelease: ${{ github.event.inputs.prerelease }}
+          generate_release_notes: true
 
-  - uses: svenstaro/upload-release-action@v2
-    with:
-      repo_token: ${{ secrets.GITHUB_TOKEN }}
-      tag: ${{ env.TAG_NAME }}
-      file: SHJR-linux.zip
-      asset_name: SHJR-linux.zip
-      draft: true
-      prerelease: ${{ github.event.inputs.prerelease }}
-      generate_release_notes: true
-```
+  release-windows:
+    name: Upload Windows Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windowsBuild
+          path: build
 
-release-windows:
-name: Upload Windows Build
-needs: build
-runs-on: ubuntu-latest
-steps:
-- uses: actions/download-artifact@v4
-with:
-name: windowsBuild
-path: build
+      - name: Zip Windows build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          7z a SHJR-windows.zip ./build/*
 
-```
-  - name: Zip Windows build
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y p7zip-full
-      7z a SHJR-windows.zip ./build/*
+      - name: Upload Release Asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TAG_NAME }}
+          file: SHJR-windows.zip
+          asset_name: SHJR-windows.zip
+          draft: true
+          prerelease: ${{ github.event.inputs.prerelease }}
 
-  - uses: svenstaro/upload-release-action@v2
-    with:
-      repo_token: ${{ secrets.GITHUB_TOKEN }}
-      tag: ${{ env.TAG_NAME }}
-      file: SHJR-windows.zip
-      asset_name: SHJR-windows.zip
-      draft: true
-      prerelease: ${{ github.event.inputs.prerelease }}
-```
+  release-mac:
+    name: Upload macOS Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macBuild
+          path: build
 
-release-mac:
-name: Upload macOS Build
-needs: build
-runs-on: ubuntu-latest
-steps:
-- uses: actions/download-artifact@v4
-with:
-name: macBuild
-path: build
+      - name: Zip macOS build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          7z a SHJR-macOS.zip ./build/*
 
-```
-  - name: Zip macOS build
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y p7zip-full
-      7z a SHJR-macOS.zip ./build/*
-
-  - uses: svenstaro/upload-release-action@v2
-    with:
-      repo_token: ${{ secrets.GITHUB_TOKEN }}
-      tag: ${{ env.TAG_NAME }}
-      file: SHJR-macOS.zip
-      asset_name: SHJR-macOS.zip
-      draft: true
-      prerelease: ${{ github.event.inputs.prerelease }}
-```
+      - name: Upload Release Asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TAG_NAME }}
+          file: SHJR-macOS.zip
+          asset_name: SHJR-macOS.zip
+          draft: true
+          prerelease: ${{ github.event.inputs.prerelease }}
