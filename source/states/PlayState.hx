@@ -2576,6 +2576,24 @@ if(ClientPrefs.data.disableGCLag)
 
 	private function popUpScore(note:Note = null):Void
 	{
+		if (cpuControlled)
+		{
+			var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
+			var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+
+			totalNotesHit += daRating.ratingMod;
+			note.ratingMod = daRating.ratingMod;
+			if(!note.ratingDisabled) daRating.hits++;
+			note.rating = daRating.name;
+			songScore += daRating.score;
+			if(!note.ratingDisabled)
+			{
+				songHits++;
+				totalPlayed++;
+			}
+			return;
+		}
+
 		var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
 		vocals.volume = 1;
 
@@ -3065,7 +3083,7 @@ if(ClientPrefs.data.disableGCLag)
 
 		note.wasGoodHit = true;
 
-		if (note.hitsoundVolume > 0 && !note.hitsoundDisabled)
+		if (note.hitsoundVolume > 0 && !note.hitsoundDisabled && !cpuControlled)
 			FlxG.sound.play(Paths.sound(note.hitsound), note.hitsoundVolume);
 
 		if(!note.hitCausesMiss) //Common notes
