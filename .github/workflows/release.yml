@@ -1,0 +1,118 @@
+name: SHJR Manual Release
+
+on:
+workflow_dispatch:
+inputs:
+tag_name:
+description: "Release version (ex: v1.0.0)"
+required: true
+prerelease:
+description: "Is prerelease?"
+required: true
+type: boolean
+custom_message:
+description: "Optional message"
+required: false
+
+permissions:
+contents: write
+
+env:
+TAG_NAME: SHJR Engine - ${{ github.event.inputs.tag_name }}
+
+jobs:
+
+create-tag:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+
+```
+  - run: git fetch --tags
+
+  - name: Create tag
+    run: |
+      git config --global user.name "${{ github.actor }}"
+      git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+      git tag ${{ github.event.inputs.tag_name }}
+      git push origin ${{ github.event.inputs.tag_name }}
+```
+
+build:
+needs: create-tag
+uses: ./.github/workflows/main.yml
+with:
+buildFlags: officialBuild
+
+release-linux:
+needs: build
+runs-on: ubuntu-latest
+steps:
+- uses: actions/download-artifact@v4
+with:
+name: linuxBuild
+path: build
+
+```
+  - run: |
+      sudo apt-get install -y p7zip-full
+      7z a SHJR-linux.zip ./build/*
+
+  - uses: svenstaro/upload-release-action@v2
+    with:
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
+      tag: ${{ github.event.inputs.tag_name }}
+      file: SHJR-linux.zip
+      asset_name: SHJR-linux.zip
+      draft: true
+      prerelease: ${{ github.event.inputs.prerelease }}
+      generate_release_notes: true
+```
+
+release-windows:
+needs: build
+runs-on: ubuntu-latest
+steps:
+- uses: actions/download-artifact@v4
+with:
+name: windowsBuild
+path: build
+
+```
+  - run: |
+      sudo apt-get install -y p7zip-full
+      7z a SHJR-windows.zip ./build/*
+
+  - uses: svenstaro/upload-release-action@v2
+    with:
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
+      tag: ${{ github.event.inputs.tag_name }}
+      file: SHJR-windows.zip
+      asset_name: SHJR-windows.zip
+      draft: true
+      prerelease: ${{ github.event.inputs.prerelease }}
+```
+
+release-mac:
+needs: build
+runs-on: ubuntu-latest
+steps:
+- uses: actions/download-artifact@v4
+with:
+name: macBuild
+path: build
+
+```
+  - run: |
+      sudo apt-get install -y p7zip-full
+      7z a SHJR-macOS.zip ./build/*
+
+  - uses: svenstaro/upload-release-action@v2
+    with:
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
+      tag: ${{ github.event.inputs.tag_name }}
+      file: SHJR-macOS.zip
+      asset_name: SHJR-macOS.zip
+      draft: true
+      prerelease: ${{ github.event.inputs.prerelease }}
+```
