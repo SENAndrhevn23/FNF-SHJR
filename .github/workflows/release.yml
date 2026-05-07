@@ -15,20 +15,35 @@ permissions:
   contents: write
 
 jobs:
+# -----------------------------
+# CREATE TAG
+# -----------------------------
   create-tag:
-    name: Create Tag
+    name: Create Git Tag
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0   # IMPORTANT for tags
 
       - name: Create tag
         run: |
           git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-          git tag "${{ github.event.inputs.tag_name }}" || echo "Tag exists"
-          git push origin "${{ github.event.inputs.tag_name }}" || true
+          git config user.email "${{ github.actor }}@users.noreply.github.com}"
 
+          git fetch --tags
+
+          if git rev-parse "${{ github.event.inputs.tag_name }}" >/dev/null 2>&1; then
+            echo "Tag already exists"
+          else
+            git tag "${{ github.event.inputs.tag_name }}"
+            git push origin "${{ github.event.inputs.tag_name }}"
+          fi
+
+# -----------------------------
+# BUILD (Reusable Workflow)
+# -----------------------------
   build:
     name: Build Game
     needs: create-tag
@@ -37,28 +52,35 @@ jobs:
     with:
       tag_name: ${{ github.event.inputs.tag_name }}
 
+# -----------------------------
+# RELEASE
+# -----------------------------
   release:
     name: Publish Release
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/checkout@v4.2.2
+
+      - name: Download Linux build
+        uses: actions/download-artifact@v4.1.8
         with:
           name: linuxBuild
           path: release/linux
 
-      - uses: actions/download-artifact@v4.1.8
+      - name: Download Windows build
+        uses: actions/download-artifact@v4.1.8
         with:
           name: windowsBuild
           path: release/windows
 
-      - name: Zip Linux
+      - name: Zip Linux build
         run: |
           cd release/linux
           zip -r ../../SHJR-linux.zip .
 
-      - name: Zip Windows
+      - name: Zip Windows build
         run: |
           cd release/windows
           zip -r ../../SHJR-windows.zip .
@@ -71,6 +93,8 @@ jobs:
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
+          draft: false
+          prerelease: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
