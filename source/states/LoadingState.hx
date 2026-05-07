@@ -43,8 +43,8 @@ class LoadingState extends MusicBeatState
 	public static var loaded:Int = 0;
 	public static var loadMax:Int = 0;
 
-	static var originalBitmapKeys:Map<String, String> = [];
-	static var requestedBitmaps:Map<String, BitmapData> = [];
+	static var originalBitmapKeys:Map<String, String> = new Map<String, String>();
+	static var requestedBitmaps:Map<String, BitmapData> = new Map<String, BitmapData>();
 	static var mutex:Mutex;
 	static var threadPool:FixedThreadPool = null;
 
@@ -214,10 +214,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 			trace('Failed to stream preload manifest "$path": $e');
 			return null;
 		}
-		finally
-		{
-			if (input != null) input.close();
-		}
+		if (input != null) input.close();
 	}
 
 	try
@@ -479,7 +476,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 				});
 			}
 		}
-		else if(!isSpinning && (pessy.flipX && pessy.x > FlxG.width) || (!pessy.flipX && pessy.x < -pessy.width))
+		else if(!isSpinning && ((pessy.flipX && pessy.x > FlxG.width) || (!pessy.flipX && pessy.x < -pessy.width)))
 		{
 			isSpinning = true;
 			pessy.animation.play('spin', true);
@@ -684,16 +681,16 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 					for (asset in preload.keys())
 					{
 						var filters:Int = preload.get(asset);
-						var asset:String = asset.trim();
+						var trimmedAsset:String = asset.trim();
 
 						if(filters < 0 || StageData.validateVisibility(filters))
 						{
-							if(asset.startsWith('images/'))
-								imgs.push(asset.substr('images/'.length));
-							else if(asset.startsWith('sounds/'))
-								snds.push(asset.substr('sounds/'.length));
-							else if(asset.startsWith('music/'))
-								mscs.push(asset.substr('music/'.length));
+							if(trimmedAsset.startsWith('images/'))
+								imgs.push(trimmedAsset.substr('images/'.length));
+							else if(trimmedAsset.startsWith('sounds/'))
+								snds.push(trimmedAsset.substr('sounds/'.length));
+							else if(trimmedAsset.startsWith('music/'))
+								mscs.push(trimmedAsset.substr('music/'.length));
 						}
 					}
 					prepare(imgs, snds, mscs);
@@ -717,16 +714,16 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 					for (asset in Reflect.fields(stageData.preload))
 					{
 						var filters:Int = Reflect.field(stageData.preload, asset);
-						var asset:String = asset.trim();
+						var trimmedAsset:String = asset.trim();
 
 						if(filters < 0 || StageData.validateVisibility(filters))
 						{
-							if(asset.startsWith('images/'))
-								imgs.push(asset.substr('images/'.length));
-							else if(asset.startsWith('sounds/'))
-								snds.push(asset.substr('sounds/'.length));
-							else if(asset.startsWith('music/'))
-								mscs.push(asset.substr('music/'.length));
+							if(trimmedAsset.startsWith('images/'))
+								imgs.push(trimmedAsset.substr('images/'.length));
+							else if(trimmedAsset.startsWith('sounds/'))
+								snds.push(trimmedAsset.substr('sounds/'.length));
+							else if(trimmedAsset.startsWith('music/'))
+								mscs.push(trimmedAsset.substr('music/'.length));
 						}
 					}
 				}
@@ -798,7 +795,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 	{
 		clearInvalidFrom(imagesToPrepare, 'images', '.png', IMAGE);
 		clearInvalidFrom(soundsToPrepare, 'sounds', '.${Paths.SOUND_EXT}', SOUND);
-		clearInvalidFrom(musicToPrepare, 'music',' .${Paths.SOUND_EXT}', SOUND);
+		clearInvalidFrom(musicToPrepare, 'music', '.${Paths.SOUND_EXT}', SOUND);
 		clearInvalidFrom(songsToPrepare, 'songs', '.${Paths.SOUND_EXT}', SOUND, 'songs');
 
 		for (arr in [imagesToPrepare, soundsToPrepare, musicToPrepare, songsToPrepare])
