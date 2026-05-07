@@ -8,7 +8,21 @@ on:
     branches: [ main, experimental ]
 
   workflow_dispatch:
+
   workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag"
+        required: false
+        type: string
+      prerelease:
+        description: "Prerelease flag"
+        required: false
+        type: boolean
+      custom_message:
+        description: "Release message"
+        required: false
+        type: string
 
 jobs:
   buildLinux:
@@ -34,12 +48,20 @@ jobs:
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
 
       - name: Create Version Tag
-        run: echo "${{ github.run_id }}" > VERSION
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            echo "${{ inputs.tag_name }}" > VERSION
+          else
+            echo "${{ github.run_id }}" > VERSION
+          fi
 
-      - name: Compile
-        run: haxelib run lime build Project.xml linux --app-version="4.0.0-${{ github.run_id }}" -D officialBuild
+      - name: Compile Linux
+        run: |
+          haxelib run lime build Project.xml linux \
+          --app-version="4.0.0-${{ github.run_id }}" \
+          -D officialBuild
 
-      - name: Publish Artifact
+      - name: Publish Linux Artifact
         uses: actions/upload-artifact@v4.3.4
         with:
           name: linuxBuild
@@ -56,23 +78,32 @@ jobs:
           haxe-version: 4.3.4
 
       - name: Install Haxelib
+        shell: cmd
         run: |
           haxelib setup C:/haxelib
           haxelib install hxcpp
           call setup/windows.bat
-        shell: cmd
 
       - name: Skip SScript setup mode
-        run: echo oy9:showMacroty8:loopCosti25y10:includeAllfg >> %USERPROFILE%\settings.cocoa
         shell: cmd
+        run: echo oy9:showMacroty8:loopCosti25y10:includeAllfg >> %USERPROFILE%\settings.cocoa
 
       - name: Create Version Tag
-        run: echo "${{ github.run_id }}" > VERSION
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            echo "${{ inputs.tag_name }}" > VERSION
+          else
+            echo "${{ github.run_id }}" > VERSION
+          fi
 
-      - name: Compile
-        run: haxelib run lime build windows --app-version="4.0.0-${{ github.run_id }}" -D officialBuild
+      - name: Compile Windows
+        run: |
+          haxelib run lime build windows \
+          --app-version="4.0.0-${{ github.run_id }}" \
+          -D officialBuild
 
-      - name: Publish Artifact
+      - name: Publish Windows Artifact
         uses: actions/upload-artifact@v4.3.4
         with:
           name: windowsBuild
