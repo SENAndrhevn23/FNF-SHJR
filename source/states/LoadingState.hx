@@ -3,6 +3,8 @@ package states;
 import lime.app.Future;
 import sys.thread.FixedThreadPool;
 import haxe.Json;
+import sys.io.File;
+import sys.FileSystem;
 import lime.utils.Assets;
 import openfl.display.BitmapData;
 import openfl.utils.AssetType;
@@ -45,6 +47,195 @@ class LoadingState extends MusicBeatState
 	static var requestedBitmaps:Map<String, BitmapData> = [];
 	static var mutex:Mutex;
 	static var threadPool:FixedThreadPool = null;
+
+static var jsonLookahead:Int = -1;
+
+static inline function jsonReadByte(input:sys.io.FileInput):Int
+{
+	if (jsonLookahead != -1)
+	{
+		var c = jsonLookahead;
+		jsonLookahead = -1;
+		return c;
+	}
+
+	try
+	{
+		return input.readByte();
+	}
+	catch (e:Dynamic)
+	{
+		return -1;
+	}
+}
+
+static inline function jsonUnreadByte(c:Int):Void
+{
+	jsonLookahead = c;
+}
+
+static function jsonSkipWs(input:sys.io.FileInput):Int
+{
+	var c = jsonReadByte(input);
+	while (c != -1)
+	{
+		switch (c)
+		{
+			case 9, 10, 13, 32:
+				c = jsonReadByte(input);
+			default:
+				return c;
+		}
+	}
+	return -1;
+}
+
+static function jsonReadString(input:sys.io.FileInput):Null<String>
+{
+	var out = new StringBuf();
+
+	while (true)
+	{
+		var c = jsonReadByte(input);
+		if (c == -1) return null;
+
+		if (c == '"'.code)
+			return out.toString();
+
+		if (c == '\\'.code)
+		{
+			c = jsonReadByte(input);
+			if (c == -1) return null;
+
+			switch (c)
+			{
+				case '"'.code: out.add('"');
+				case '\\'.code: out.add('\\');
+				case '/'.code: out.add('/');
+				case 'b'.code: out.add("\b");
+				case 'f'.code: out.add("\f");
+				case 'n'.code: out.add("\n");
+				case 'r'.code: out.add("\r");
+				case 't'.code: out.add("\t");
+				default: out.add(String.fromCharCode(c));
+			}
+		}
+		else
+		{
+			out.add(String.fromCharCode(c));
+		}
+	}
+}
+
+static function jsonReadNumber(input:sys.io.FileInput, first:Int):Null<Int>
+{
+	var out = new StringBuf();
+	out.add(String.fromCharCode(first));
+
+	while (true)
+	{
+		var c = jsonReadByte(input);
+		if (c == -1) break;
+
+		if ((c >= '0'.code && c <= '9'.code) || c == '-'.code || c == '+'.code)
+			out.add(String.fromCharCode(c));
+		else
+		{
+			jsonUnreadByte(c);
+			break;
+		}
+	}
+
+	return Std.parseInt(out.toString());
+}
+
+static function resolveTextPath(path:String):Null<String>
+{
+	if (FileSystem.exists(path))
+		return path;
+
+	#if (lime || openfl)
+	var assetPath:String = Assets.getPath(path);
+	if (assetPath != null && FileSystem.exists(assetPath))
+		return assetPath;
+	#end
+
+	return null;
+}
+
+static function loadPreloadManifest(path:String):Map<String, Int>
+{
+	var result:Map<String, Int> = new Map<String, Int>();
+	jsonLookahead = -1;
+
+	var realPath = resolveTextPath(path);
+	if (realPath != null)
+	{
+		var input:sys.io.FileInput = null;
+		try
+		{
+			input = File.read(realPath, false);
+
+			var c = jsonSkipWs(input);
+			if (c != '{'.code) return null;
+
+			c = jsonSkipWs(input);
+			if (c == '}'.code) return result;
+
+			while (c != -1)
+			{
+				if (c != '"'.code) return null;
+
+				var key = jsonReadString(input);
+				if (key == null) return null;
+
+				c = jsonSkipWs(input);
+				if (c != ':'.code) return null;
+
+				c = jsonSkipWs(input);
+				if (c == -1) return null;
+
+				var value = jsonReadNumber(input, c);
+				if (value == null) return null;
+
+				result.set(key.trim(), value);
+
+				c = jsonSkipWs(input);
+				if (c == '}'.code) break;
+				if (c != ','.code) return null;
+
+				c = jsonSkipWs(input);
+			}
+
+			return result;
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to stream preload manifest "$path": $e');
+			return null;
+		}
+		finally
+		{
+			if (input != null) input.close();
+		}
+	}
+
+	try
+	{
+		var raw:Dynamic = Json.parse(Assets.getText(path));
+		for (asset in Reflect.fields(raw))
+		{
+			var v:Dynamic = Reflect.field(raw, asset);
+			result.set(asset, Std.int(v));
+		}
+		return result;
+	}
+	catch (e:Dynamic)
+	{
+		trace('Failed to read preload manifest "$path": $e');
+		return null;
+	}
+}
 
 	function new(target:FlxState, stopMusic:Bool)
 	{
@@ -475,24 +666,24 @@ class LoadingState extends MusicBeatState
 			try
 			{
 				var path:String = Paths.json('$folder/preload');
-				var json:Dynamic = null;
+				var preload:Map<String, Int> = null;
 
 				#if MODS_ALLOWED
 				var moddyFile:String = Paths.modsJson('$folder/preload');
-				if (FileSystem.exists(moddyFile)) json = Json.parse(File.getContent(moddyFile));
-				else json = Json.parse(File.getContent(path));
+				if (FileSystem.exists(moddyFile)) preload = loadPreloadManifest(moddyFile);
+				else preload = loadPreloadManifest(path);
 				#else
-				json = Json.parse(Assets.getText(path));
+				preload = loadPreloadManifest(path);
 				#end
 
-				if(json != null)
+				if(preload != null)
 				{
 					var imgs:Array<String> = [];
 					var snds:Array<String> = [];
 					var mscs:Array<String> = [];
-					for (asset in Reflect.fields(json))
+					for (asset in preload.keys())
 					{
-						var filters:Int = Reflect.field(json, asset);
+						var filters:Int = preload.get(asset);
 						var asset:String = asset.trim();
 
 						if(filters < 0 || StageData.validateVisibility(filters))
