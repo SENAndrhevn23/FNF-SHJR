@@ -1,4 +1,7 @@
-name: SHJR Manual Release
+name: SHJR Release
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   workflow_dispatch:
@@ -7,94 +10,67 @@ on:
         description: "Release version (example: v1.0.0)"
         required: true
         type: string
-      prerelease:
-        description: "Is this a prerelease?"
-        required: true
-        type: boolean
-      custom_message:
-        description: "Optional release message"
-        required: false
-        type: string
 
 permissions:
   contents: write
 
 jobs:
   create-tag:
-    name: Create Git Tag
+    name: Create Tag
     runs-on: ubuntu-latest
 
-    env:
-      TAG_NAME: ${{ github.event.inputs.tag_name }}
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Fetch tags
-        run: git fetch --tags
+      - uses: actions/checkout@v4.2.2
 
       - name: Create tag
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
-          git tag "${TAG_NAME}" || echo "Tag exists"
-          git push origin "${TAG_NAME}" || echo "Already pushed"
+          git tag "${{ github.event.inputs.tag_name }}" || echo "Tag exists"
+          git push origin "${{ github.event.inputs.tag_name }}" || true
 
   build:
-    name: Build SHJR
+    name: Build Game
     needs: create-tag
     uses: ./.github/workflows/main.yml
     secrets: inherit
     with:
       tag_name: ${{ github.event.inputs.tag_name }}
-      prerelease: ${{ github.event.inputs.prerelease }}
-      custom_message: ${{ github.event.inputs.custom_message }}
 
   release:
-    name: Create GitHub Release
+    name: Publish Release
     needs: build
     runs-on: ubuntu-latest
 
-    env:
-      TAG_NAME: ${{ github.event.inputs.tag_name }}
-      RELEASE_MESSAGE: ${{ github.event.inputs.custom_message }}
-
     steps:
-      - name: Download Linux build
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: linuxBuild
           path: release/linux
 
-      - name: Download Windows build
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: windowsBuild
           path: release/windows
 
-      - name: Zip Linux build
+      - name: Zip Linux
         run: |
-          sudo apt-get update
-          sudo apt-get install -y zip
           cd release/linux
           zip -r ../../SHJR-linux.zip .
 
-      - name: Zip Windows build
+      - name: Zip Windows
         run: |
           cd release/windows
           zip -r ../../SHJR-windows.zip .
 
-      - name: Publish Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.TAG_NAME }}
-          name: ${{ env.TAG_NAME }}
-          body: ${{ env.RELEASE_MESSAGE }}
-          prerelease: ${{ github.event.inputs.prerelease }}
-          draft: false
-          generate_release_notes: true
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: ${{ github.event.inputs.tag_name }}
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
