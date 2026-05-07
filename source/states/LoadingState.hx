@@ -107,18 +107,19 @@ static function jsonReadString(input:sys.io.FileInput):Null<String>
 			c = jsonReadByte(input);
 			if (c == -1) return null;
 
-switch (c)
-{
-	case '"'.code: out.add('"');
-	case '\\'.code: out.add('\\');
-	case '/'.code: out.add('/');
-	case 'b'.code: out.add(String.fromCharCode(8));
-	case 'f'.code: out.add(String.fromCharCode(12));
-	case 'n'.code: out.add("\n");
-	case 'r'.code: out.add("\r");
-	case 't'.code: out.add("\t");
-	default: out.add(String.fromCharCode(c));
-}
+			switch (c)
+			{
+				case '"'.code: out.add('"');
+				case '\\'.code: out.add('\\');
+				case '/'.code: out.add('/');
+				case 'b'.code: out.add(String.fromCharCode(8));
+				case 'f'.code: out.add(String.fromCharCode(12));
+				case 'n'.code: out.add("\n");
+				case 'r'.code: out.add("\r");
+				case 't'.code: out.add("\t");
+				default: out.add(String.fromCharCode(c));
+			}
+		}
 		else
 		{
 			out.add(String.fromCharCode(c));
