@@ -63,12 +63,6 @@ jobs:
           name: windowsBuild
           path: release/windows
 
-      - name: Download macOS build
-        uses: actions/download-artifact@v4
-        with:
-          name: macBuild
-          path: release/macos
-
       - name: Zip Linux build
         run: |
           sudo apt-get update
@@ -81,11 +75,6 @@ jobs:
           cd release/windows
           zip -r ../../SHJR-windows.zip .
 
-      - name: Zip macOS build
-        run: |
-          cd release/macos
-          zip -r ../../SHJR-macOS.zip .
-
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
@@ -95,7 +84,6 @@ jobs:
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
-            SHJR-macOS.zip
           prerelease: ${{ github.event.inputs.prerelease }}
           draft: false
           generate_release_notes: true
