@@ -20,8 +20,8 @@ permissions:
   contents: write
 
 env:
-  TAG_NAME: ${{ github.event.inputs.tag_name }}
-  RELEASE_MESSAGE: ${{ github.event.inputs.custom_message }}
+  TAG_NAME: ${{ inputs.tag_name }}
+  RELEASE_MESSAGE: ${{ inputs.custom_message }}
 
 jobs:
   create-tag:
@@ -45,6 +45,10 @@ jobs:
     needs: create-tag
     uses: ./.github/workflows/main.yml
     secrets: inherit
+    with:
+      tag_name: ${{ inputs.tag_name }}
+      prerelease: ${{ inputs.prerelease }}
+      custom_message: ${{ inputs.custom_message }}
 
   release:
     name: Create GitHub Release
@@ -84,7 +88,7 @@ jobs:
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: ${{ inputs.prerelease }}
           draft: false
           generate_release_notes: true
         env:
