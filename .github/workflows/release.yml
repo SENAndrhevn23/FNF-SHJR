@@ -21,6 +21,7 @@ permissions:
 
 env:
   TAG_NAME: ${{ github.event.inputs.tag_name }}
+  RELEASE_MESSAGE: ${{ github.event.inputs.custom_message }}
 
 jobs:
   create-tag:
@@ -36,8 +37,8 @@ jobs:
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
-          git tag $TAG_NAME || echo "Tag exists"
-          git push origin $TAG_NAME || echo "Already pushed"
+          git tag "${TAG_NAME}" || echo "Tag exists"
+          git push origin "${TAG_NAME}" || echo "Already pushed"
 
   build:
     name: Build SHJR
@@ -45,81 +46,58 @@ jobs:
     uses: ./.github/workflows/main.yml
     secrets: inherit
 
-  release-linux:
-    name: Upload Linux Build
+  release:
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download Linux build
+        uses: actions/download-artifact@v4
         with:
           name: linuxBuild
-          path: build
+          path: release/linux
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windowsBuild
+          path: release/windows
+
+      - name: Download macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macBuild
+          path: release/macos
 
       - name: Zip Linux build
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full
-          7z a SHJR-linux.zip ./build/*
-
-      - name: Upload Release Asset
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.TAG_NAME }}
-          file: SHJR-linux.zip
-          asset_name: SHJR-linux.zip
-          draft: true
-          prerelease: ${{ github.event.inputs.prerelease }}
-          generate_release_notes: true
-
-  release-windows:
-    name: Upload Windows Build
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: windowsBuild
-          path: build
+          sudo apt-get install -y zip
+          cd release/linux
+          zip -r ../../SHJR-linux.zip .
 
       - name: Zip Windows build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
-          7z a SHJR-windows.zip ./build/*
-
-      - name: Upload Release Asset
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.TAG_NAME }}
-          file: SHJR-windows.zip
-          asset_name: SHJR-windows.zip
-          draft: true
-          prerelease: ${{ github.event.inputs.prerelease }}
-
-  release-mac:
-    name: Upload macOS Build
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: macBuild
-          path: build
+          cd release/windows
+          zip -r ../../SHJR-windows.zip .
 
       - name: Zip macOS build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
-          7z a SHJR-macOS.zip ./build/*
+          cd release/macos
+          zip -r ../../SHJR-macOS.zip .
 
-      - name: Upload Release Asset
-        uses: svenstaro/upload-release-action@v2
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.TAG_NAME }}
-          file: SHJR-macOS.zip
-          asset_name: SHJR-macOS.zip
-          draft: true
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
+          body: ${{ env.RELEASE_MESSAGE }}
+          files: |
+            SHJR-linux.zip
+            SHJR-windows.zip
+            SHJR-macOS.zip
           prerelease: ${{ github.event.inputs.prerelease }}
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
