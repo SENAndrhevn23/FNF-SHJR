@@ -1,5 +1,8 @@
 name: Build
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [ main, experimental ]
@@ -12,48 +15,36 @@ on:
   workflow_call:
     inputs:
       tag_name:
-        description: "Release tag"
         required: false
         type: string
-      prerelease:
-        description: "Prerelease flag"
-        required: false
-        type: boolean
-      custom_message:
-        description: "Release message"
-        required: false
-        type: string
+
+permissions:
+  contents: read
 
 jobs:
   buildLinux:
+    name: Linux Build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.2
 
       - uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.4
 
-      - name: Install Haxelib
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvlc-dev libvlccore-dev
+          sudo apt-get install -y libvlc-dev libvlccore-dev zip
           haxelib setup ~/haxelib
           haxelib install hxcpp > /dev/null --quiet
           chmod +x ./setup/unix.sh
           sh ./setup/unix.sh
 
-      - name: Skip SScript setup mode
-        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
-
-      - name: Create Version Tag
+      - name: Version file
         run: |
-          if [ -n "${{ inputs.tag_name }}" ]; then
-            echo "${{ inputs.tag_name }}" > VERSION
-          else
-            echo "${{ github.run_id }}" > VERSION
-          fi
+          echo "${{ inputs.tag_name || github.run_id }}" > VERSION
 
       - name: Compile Linux
         run: |
@@ -61,41 +52,34 @@ jobs:
           --app-version="4.0.0-${{ github.run_id }}" \
           -D officialBuild
 
-      - name: Publish Linux Artifact
-        uses: actions/upload-artifact@v4.3.4
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: linuxBuild
           path: export/release/linux/bin
 
   buildWindows:
+    name: Windows Build
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.2
 
       - uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.4
 
-      - name: Install Haxelib
+      - name: Install dependencies
         shell: cmd
         run: |
           haxelib setup C:/haxelib
           haxelib install hxcpp
           call setup/windows.bat
 
-      - name: Skip SScript setup mode
-        shell: cmd
-        run: echo oy9:showMacroty8:loopCosti25y10:includeAllfg >> %USERPROFILE%\settings.cocoa
-
-      - name: Create Version Tag
+      - name: Version file
         shell: bash
         run: |
-          if [ -n "${{ inputs.tag_name }}" ]; then
-            echo "${{ inputs.tag_name }}" > VERSION
-          else
-            echo "${{ github.run_id }}" > VERSION
-          fi
+          echo "${{ inputs.tag_name || github.run_id }}" > VERSION
 
       - name: Compile Windows
         run: |
@@ -103,8 +87,8 @@ jobs:
           --app-version="4.0.0-${{ github.run_id }}" \
           -D officialBuild
 
-      - name: Publish Windows Artifact
-        uses: actions/upload-artifact@v4.3.4
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: windowsBuild
           path: export/release/windows/bin
