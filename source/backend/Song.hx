@@ -1,9 +1,8 @@
 package backend;
 
+import haxe.ds.Vector;
 import haxe.Json;
 import lime.utils.Assets;
-import sys.FileSystem;
-import sys.io.File;
 
 import objects.Note;
 
@@ -11,7 +10,7 @@ typedef SwagSong =
 {
 	var song:String;
 	var notes:Array<SwagSection>;
-	var events:Array<Dynamic>;
+	var events:Array<Array<Dynamic>>;
 	var bpm:Float;
 	var needsVoices:Bool;
 	var speed:Float;
@@ -23,12 +22,15 @@ typedef SwagSong =
 	var stage:String;
 	var format:String;
 
+	@:optional var isOldVersion:Bool;
+
 	@:optional var gameOverChar:String;
 	@:optional var gameOverSound:String;
 	@:optional var gameOverLoop:String;
 	@:optional var gameOverEnd:String;
-
+	
 	@:optional var disableNoteRGB:Bool;
+	@:optional var screwYou:String;
 
 	@:optional var arrowSkin:String;
 	@:optional var splashSkin:String;
@@ -37,8 +39,7 @@ typedef SwagSong =
 typedef SwagSection =
 {
 	var sectionNotes:Array<Dynamic>;
-	@:optional var sectionBeats:Float;
-	@:optional var lengthInSteps:Float;
+	var sectionBeats:Float;
 	var mustHitSection:Bool;
 	@:optional var altAnim:Bool;
 	@:optional var gfSection:Bool;
@@ -50,7 +51,7 @@ class Song
 {
 	public var song:String;
 	public var notes:Array<SwagSection>;
-	public var events:Array<Dynamic>;
+	public var events:Array<Array<Dynamic>>;
 	public var bpm:Float;
 	public var needsVoices:Bool = true;
 	public var arrowSkin:String;
@@ -67,80 +68,57 @@ class Song
 	public var gfVersion:String = 'gf';
 	public var format:String = 'psych_v1';
 
-	public static function convert(songJson:Dynamic):Void
+	public static function convert(songJson:Dynamic)
 	{
-		if (songJson == null) return;
-
-		if (Reflect.hasField(songJson, "gfVersion") && Reflect.field(songJson, "gfVersion") == null)
+		if(songJson.gfVersion == null)
 		{
-			if (Reflect.hasField(songJson, "player3"))
-				Reflect.setField(songJson, "gfVersion", Reflect.field(songJson, "player3"));
-
-			if (Reflect.hasField(songJson, "player3"))
-				Reflect.deleteField(songJson, "player3");
+			songJson.gfVersion = songJson.player3;
+			if(Reflect.hasField(songJson, 'player3')) Reflect.deleteField(songJson, 'player3');
 		}
 
-		var sectionsData:Array<Dynamic> = cast Reflect.field(songJson, "notes");
-		if (sectionsData == null) return;
-
-		// Convert old note-based events into Psych event format
-		if (!Reflect.hasField(songJson, "events") || Reflect.field(songJson, "events") == null)
+		if(songJson.events == null)
 		{
-			Reflect.setField(songJson, "events", []);
-
-			for (secNum in 0...sectionsData.length)
+			songJson.events = [];
+			for (secNum in 0...songJson.notes.length)
 			{
-				var sec:Dynamic = sectionsData[secNum];
-				var notes:Array<Dynamic> = cast Reflect.field(sec, "sectionNotes");
-				if (notes == null) continue;
+				var sec:SwagSection = songJson.notes[secNum];
 
-				var i:Int = notes.length - 1;
-				while (i >= 0)
+				var i:Int = 0;
+				var notes:Array<Dynamic> = sec.sectionNotes;
+				var len:Int = notes.length;
+				while(i < len)
 				{
-					var note:Dynamic = notes[i];
-					var noteData:Array<Dynamic> = cast note;
-
-					if (noteData != null && noteData.length > 1 && noteData[1] != null && noteData[1] < 0)
+					var note:Array<Dynamic> = notes[i];
+					if(note[1] < 0)
 					{
-						var events:Array<Dynamic> = cast Reflect.field(songJson, "events");
-						events.push([noteData[0], [[noteData[2], noteData[3], noteData[4]]]]);
-						notes.splice(i, 1);
+						songJson.events.push([note[0], [[note[2], note[3], note[4]]]]);
+						notes.remove(note);
+						len = notes.length;
 					}
-
-					i--;
+					else i++;
 				}
 			}
 		}
 
-		// Keep section lengths instead of forcing everything to 4 beats
+		var sectionsData:Array<SwagSection> = songJson.notes;
+		if(sectionsData == null) return;
+
 		for (section in sectionsData)
 		{
-			var beats:Null<Float> = cast Reflect.field(section, "sectionBeats");
-			var lengthInSteps:Null<Float> = cast Reflect.field(section, "lengthInSteps");
-			var sectionNotes:Array<Dynamic> = cast Reflect.field(section, "sectionNotes");
-
+			var beats:Null<Float> = cast section.sectionBeats;
 			if (beats == null || Math.isNaN(beats))
 			{
-				if (lengthInSteps != null && !Math.isNaN(lengthInSteps))
-					Reflect.setField(section, "sectionBeats", lengthInSteps / 4);
-				else
-					Reflect.setField(section, "sectionBeats", 4);
+				section.sectionBeats = 4;
+				if(Reflect.hasField(section, 'lengthInSteps')) Reflect.deleteField(section, 'lengthInSteps');
 			}
 
-			if (sectionNotes == null) continue;
-
-			for (note in sectionNotes)
+			for (note in section.sectionNotes)
 			{
-				var noteData:Array<Dynamic> = cast note;
-				if (noteData == null || noteData.length < 4) continue;
+				var gottaHitNote:Bool = (note[1] < 4) ? section.mustHitSection : !section.mustHitSection;
+				note[1] = (note[1] % 4) + (gottaHitNote ? 0 : 4);
 
-				var noteLane:Int = Std.int(noteData[1]);
-				var gottaHitNote:Bool = (noteLane < 4) ? section.mustHitSection : !section.mustHitSection;
-
-				noteData[1] = (noteLane % 4) + (gottaHitNote ? 0 : 4);
-
-				if (!Std.isOfType(noteData[3], String))
-					noteData[3] = Note.defaultNoteTypes[noteData[3]];
+				if(note[3] != null && !Std.isOfType(note[3], String) && !Std.isOfType(note[3], Array) && note[3].cmpSpam == null)
+					note[3] = Note.DEFAULT_NOTE_TYPES[note[3]];
 			}
 		}
 	}
@@ -148,20 +126,16 @@ class Song
 	public static var chartPath:String;
 	public static var loadedSongName:String;
 
-	public static function loadFromJson(jsonInput:String, ?folder:String):SwagSong
+	public static function loadFromJson(jsonInput:String, ?forPlay:Bool, ?folder:String):SwagSong
 	{
-		if (folder == null) folder = jsonInput;
-
+		folder = folder ?? jsonInput;
 		PlayState.SONG = getChart(jsonInput, folder);
-		if (PlayState.SONG == null) return null;
 
 		loadedSongName = folder;
 		chartPath = _lastPath;
-
 		#if windows
 		chartPath = chartPath.replace('/', '\\');
 		#end
-
 		StageData.loadDirectory(PlayState.SONG);
 		return PlayState.SONG;
 	}
@@ -170,53 +144,51 @@ class Song
 
 	public static function getChart(jsonInput:String, ?folder:String):SwagSong
 	{
-		if (folder == null) folder = jsonInput;
-
+		if(folder == null) folder = jsonInput;
 		var rawData:String = null;
-
+		
 		var formattedFolder:String = Paths.formatToSongPath(folder);
 		var formattedSong:String = Paths.formatToSongPath(jsonInput);
 		_lastPath = Paths.json('$formattedFolder/$formattedSong');
 
-		#if MODS_ALLOWED
-		if (FileSystem.exists(_lastPath))
-			rawData = File.getContent(_lastPath);
-		else
-		#end
-			rawData = Assets.getText(_lastPath);
+		if(NativeFileSystem.exists(_lastPath))
+			rawData = NativeFileSystem.getContent(_lastPath);
 
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
 
 	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
 	{
-		if (rawData == null || rawData.length == 0) return null;
-
+		var isOldVer:Vector<Bool> = new Vector(2);
 		var songJson:Dynamic = Json.parse(rawData);
 
-		if (Reflect.hasField(songJson, 'song'))
+		if(Reflect.hasField(songJson, 'song'))
 		{
+			isOldVer[0] = true;
 			var subSong:Dynamic = Reflect.field(songJson, 'song');
-			if (subSong != null && Type.typeof(subSong) == TObject)
+			if(subSong != null && Type.typeof(subSong) == TObject)
 				songJson = subSong;
 		}
+		else
+			isOldVer[0] = false;
 
-		if (convertTo != null && convertTo.length > 0)
+		if(convertTo != null && convertTo.length > 0)
 		{
-			var fmt:Null<String> = cast Reflect.field(songJson, "format");
-			if (fmt == null)
+			var fmt:String = songJson.format;
+			if(fmt == null)
 			{
-				fmt = "unknown";
-				Reflect.setField(songJson, "format", fmt);
+				fmt = songJson.format = 'unknown';
+				isOldVer[1] = true;
+				if (isOldVer[0] && isOldVer[1]) songJson.isOldVersion = true;
 			}
 
-			switch (convertTo)
+			switch(convertTo)
 			{
 				case 'psych_v1':
-					if (!StringTools.startsWith(fmt, 'psych_v1'))
+					if(!fmt.startsWith('psych_v1'))
 					{
-						trace('converting chart $nameForError with format $fmt to psych_v1 format...');
-						Reflect.setField(songJson, "format", "psych_v1_convert");
+						#if debug trace('converting chart $nameForError with format $fmt to psych_v1 format...'); #end
+						songJson.format = 'psych_v1_convert';
 						convert(songJson);
 					}
 			}
