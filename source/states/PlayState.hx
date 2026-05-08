@@ -159,7 +159,8 @@ class PlayState extends MusicBeatState
 	public var boyfriend:Character = null;
 
 	public var notes:FlxTypedGroup<Note>;
-	public var unspawnNotes:Array<Note> = [];
+	public var unspawnNotes:Array<ChartNoteData> = [];
+	public var unspawnNoteIndex:Int = 0;
 	public var eventNotes:Array<EventNote> = [];
 
 	public var camFollow:FlxObject;
@@ -662,8 +663,8 @@ class PlayState extends MusicBeatState
 			var ratio:Float = value / songSpeed; //funny word huh
 			if(ratio != 1)
 			{
-				for (note in notes.members) note.resizeByRatio(ratio);
-				for (note in unspawnNotes) note.resizeByRatio(ratio);
+				for (note in notes.members) if(note != null) note.resizeByRatio(ratio);
+				for (i in unspawnNoteIndex...unspawnNotes.length) unspawnNotes[i].resizeByRatio(ratio);
 			}
 		}
 		songSpeed = value;
@@ -683,8 +684,8 @@ class PlayState extends MusicBeatState
 			var ratio:Float = playbackRate / value; //funny word huh
 			if(ratio != 1)
 			{
-				for (note in notes.members) note.resizeByRatio(ratio);
-				for (note in unspawnNotes) note.resizeByRatio(ratio);
+				for (note in notes.members) if(note != null) note.resizeByRatio(ratio);
+				for (i in unspawnNoteIndex...unspawnNotes.length) unspawnNotes[i].resizeByRatio(ratio);
 			}
 		}
 		playbackRate = value;
@@ -1110,26 +1111,13 @@ class PlayState extends MusicBeatState
 
 	public function clearNotesBefore(time:Float)
 	{
-		var i:Int = unspawnNotes.length - 1;
-		while (i >= 0) {
-			var daNote:Note = unspawnNotes[i];
-			if(daNote.strumTime - 350 < time)
-			{
-				daNote.active = false;
-				daNote.visible = false;
-				daNote.ignoreNote = true;
+		while (unspawnNoteIndex < unspawnNotes.length && unspawnNotes[unspawnNoteIndex].strumTime - 350 < time)
+			unspawnNoteIndex++;
 
-				daNote.kill();
-				unspawnNotes.remove(daNote);
-				daNote.destroy();
-			}
-			--i;
-		}
-
-		i = notes.length - 1;
+		var i:Int = notes.length - 1;
 		while (i >= 0) {
 			var daNote:Note = notes.members[i];
-			if(daNote.strumTime - 350 < time)
+			if(daNote != null && daNote.strumTime - 350 < time)
 			{
 				daNote.active = false;
 				daNote.visible = false;
@@ -1343,16 +1331,17 @@ class PlayState extends MusicBeatState
 				for (event in eventsChart.events) //Event Notes
 					for (i in 0...event[1].length)
 						makeEvent(event, i);
-		}
+			}
 		catch(e:Dynamic) {}
 
-		var oldNote:Note = null;
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
-		var ghostNotesCaught:Int = 0;
 		var daBpm:Float = Conductor.bpm;
-		var noteLookup:Map<String, Note> = new Map<String, Note>();
 		var noteTypeLookup:Map<String, Bool> = new Map<String, Bool>();
-	
+		var noteKeyLookup:Map<String, Bool> = new Map<String, Bool>();
+
+		unspawnNotes = [];
+		unspawnNoteIndex = 0;
+
 		for (section in sectionsData)
 		{
 			if (section.changeBPM != null && section.changeBPM && section.bpm != null && daBpm != section.bpm)
@@ -1360,112 +1349,55 @@ class PlayState extends MusicBeatState
 
 			for (i in 0...section.sectionNotes.length)
 			{
-				final songNotes: Array<Dynamic> = section.sectionNotes[i];
-				var spawnTime: Float = songNotes[0];
-				var noteColumn: Int = Std.int(songNotes[1] % totalColumns);
-				var holdLength: Float = songNotes[2];
-				var noteType: String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
+				final songNotes:Array<Dynamic> = section.sectionNotes[i];
+				var spawnTime:Float = songNotes[0];
+				var noteColumn:Int = Std.int(songNotes[1] % totalColumns);
+				var holdLength:Float = songNotes[2];
+				var noteType:String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
 				if (Math.isNaN(holdLength))
 					holdLength = 0.0;
 
 				var gottaHitNote:Bool = (songNotes[1] < totalColumns);
-
 				var noteKey:String = noteColumn + "|" + gottaHitNote + "|" + noteType + "|" + spawnTime;
-				var ghostNote:Note = noteLookup.get(noteKey);
-				if (ghostNote != null)
+				if (noteKeyLookup.exists(noteKey))
+					continue;
+				noteKeyLookup.set(noteKey, true);
+
+				var isAlt:Bool = section.altAnim && !gottaHitNote;
+				var curStepCrochet:Float = 60 / daBpm * 1000 / 4.0;
+				var roundSus:Int = Math.round(holdLength / curStepCrochet);
+				var gfNote:Bool = (section.gfSection && gottaHitNote == section.mustHitSection);
+				var animSuffix:String = isAlt ? "-alt" : "";
+
+				unspawnNotes.push(new ChartNoteData(spawnTime, noteColumn, holdLength, gottaHitNote, noteType, animSuffix, gfNote, false, 1, -1));
+				if(!noteTypeLookup.exists(noteType))
 				{
-					if (ghostNote.tail.length > 0)
-						for (tail in ghostNote.tail)
-						{
-							tail.destroy();
-							unspawnNotes.remove(tail);
-						}
-					ghostNote.destroy();
-					unspawnNotes.remove(ghostNote);
-					ghostNotesCaught++;
+					noteTypeLookup.set(noteType, true);
+					noteTypes.push(noteType);
 				}
 
-				var swagNote:Note = new Note(spawnTime, noteColumn, oldNote);
-				var isAlt: Bool = section.altAnim && !gottaHitNote;
-				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
-				swagNote.animSuffix = isAlt ? "-alt" : "";
-				swagNote.mustPress = gottaHitNote;
-				swagNote.sustainLength = holdLength;
-				swagNote.noteType = noteType;
-	
-				swagNote.scrollFactor.set();
-				unspawnNotes.push(swagNote);
-
-				var curStepCrochet:Float = 60 / daBpm * 1000 / 4.0;
-				final roundSus:Int = Math.round(swagNote.sustainLength / curStepCrochet);
 				if(roundSus > 0)
 				{
 					for (susNote in 0...roundSus)
 					{
-						oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
-
-						var sustainNote:Note = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
-						sustainNote.animSuffix = swagNote.animSuffix;
-						sustainNote.mustPress = swagNote.mustPress;
-						sustainNote.gfNote = swagNote.gfNote;
-						sustainNote.noteType = swagNote.noteType;
-						sustainNote.scrollFactor.set();
-						sustainNote.parent = swagNote;
-						unspawnNotes.push(sustainNote);
-						swagNote.tail.push(sustainNote);
-
-						sustainNote.correctionOffset = swagNote.height / 2;
-						if(!PlayState.isPixelStage)
-						{
-							if(oldNote.isSustainNote)
-							{
-								oldNote.scale.y *= Note.SUSTAIN_SIZE / oldNote.frameHeight;
-								oldNote.scale.y /= playbackRate;
-								oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
-							}
-
-							if(ClientPrefs.data.downScroll)
-								sustainNote.correctionOffset = 0;
-						}
-						else if(oldNote.isSustainNote)
-						{
-							oldNote.scale.y /= playbackRate;
-							oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
-						}
-
-						if (sustainNote.mustPress) sustainNote.x += FlxG.width / 2; // general offset
-						else if(ClientPrefs.data.middleScroll)
-						{
-							sustainNote.x += 310;
-							if(noteColumn > 1) //Up and Right
-								sustainNote.x += FlxG.width / 2 + 25;
-						}
+						unspawnNotes.push(new ChartNoteData(
+							spawnTime + (curStepCrochet * susNote),
+							noteColumn,
+							holdLength,
+							gottaHitNote,
+							noteType,
+							animSuffix,
+							gfNote,
+							true,
+							1,
+								-1
+						));
 					}
 				}
 
-				if (swagNote.mustPress)
-				{
-					swagNote.x += FlxG.width / 2; // general offset
-				}
-				else if(ClientPrefs.data.middleScroll)
-				{
-					swagNote.x += 310;
-					if(noteColumn > 1) //Up and Right
-					{
-						swagNote.x += FlxG.width / 2 + 25;
-					}
-				}
-				if(!noteTypeLookup.exists(swagNote.noteType))
-				{
-					noteTypeLookup.set(swagNote.noteType, true);
-					noteTypes.push(swagNote.noteType);
-				}
-				noteLookup.set(noteKey, swagNote);
-
-				oldNote = swagNote;
 			}
 		}
-		trace('["${SONG.song.toUpperCase()}" CHART INFO]: Ghost Notes Cleared: $ghostNotesCaught');
+		trace('["${SONG.song.toUpperCase()}" CHART INFO]: Ghost Notes Cleared: 0');
 		for (event in songData.events) //Event Notes
 			for (i in 0...event[1].length)
 				makeEvent(event, i);
@@ -1473,7 +1405,6 @@ class PlayState extends MusicBeatState
 		unspawnNotes.sort(sortByTime);
 		generatedMusic = true;
 	}
-
 	// called only once per different event (Used for precaching)
 	function eventPushed(event:EventNote) {
 		eventPushedUnique(event);
@@ -1806,23 +1737,42 @@ if(ClientPrefs.data.disableGCLag)
 		}
 		doDeathCheck();
 
-		if (unspawnNotes[0] != null)
+		if (unspawnNoteIndex < unspawnNotes.length)
 		{
 			var time:Float = spawnTime * playbackRate;
 			if(songSpeed < 1) time /= songSpeed;
-			if(unspawnNotes[0].multSpeed < 1) time /= unspawnNotes[0].multSpeed;
+			var firstSpawn:ChartNoteData = unspawnNotes[unspawnNoteIndex];
+			if(firstSpawn.multSpeed < 1) time /= firstSpawn.multSpeed;
+			var lastMainNote:Note = null;
 
-			while (unspawnNotes.length > 0 && unspawnNotes[0].strumTime - Conductor.songPosition < time)
+			while (unspawnNoteIndex < unspawnNotes.length && unspawnNotes[unspawnNoteIndex].strumTime - Conductor.songPosition < time)
 			{
-				var dunceNote:Note = unspawnNotes[0];
-				notes.insert(0, dunceNote);
+				var spawnData:ChartNoteData = unspawnNotes[unspawnNoteIndex++];
+				var parentNote:Note = spawnData.isSustainNote ? lastMainNote : null;
+				var dunceNote:Note = new Note(spawnData.strumTime, spawnData.noteData, parentNote, spawnData.isSustainNote);
+				dunceNote.animSuffix = spawnData.animSuffix;
+				dunceNote.mustPress = spawnData.mustPress;
+				dunceNote.gfNote = spawnData.gfNote;
+				dunceNote.noteType = spawnData.noteType;
+				dunceNote.sustainLength = spawnData.sustainLength;
+				dunceNote.multSpeed = spawnData.multSpeed;
+				dunceNote.scrollFactor.set();
 				dunceNote.spawned = true;
+
+				if (spawnData.mustPress)
+					dunceNote.x += FlxG.width / 2;
+				else if(ClientPrefs.data.middleScroll)
+				{
+					dunceNote.x += 310;
+					if(spawnData.noteData > 1)
+						dunceNote.x += FlxG.width / 2 + 25;
+				}
+
+				notes.insert(0, dunceNote);
+				if(!spawnData.isSustainNote) lastMainNote = dunceNote;
 
 				callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
 				callOnHScript('onSpawnNote', [dunceNote]);
-
-				var index:Int = unspawnNotes.indexOf(dunceNote);
-				unspawnNotes.splice(index, 1);
 			}
 		}
 
@@ -2439,8 +2389,9 @@ if(ClientPrefs.data.disableGCLag)
 				if(daNote.strumTime < songLength - Conductor.safeZoneOffset)
 					health -= 0.05 * healthLoss;
 			});
-			for (daNote in unspawnNotes)
+			for (i in unspawnNoteIndex...unspawnNotes.length)
 			{
+				var daNote:ChartNoteData = unspawnNotes[i];
 				if(daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
 					health -= 0.05 * healthLoss;
 			}
@@ -2550,7 +2501,7 @@ if(ClientPrefs.data.disableGCLag)
 			daNote.visible = false;
 			invalidateNote(daNote);
 		}
-		unspawnNotes = [];
+		unspawnNoteIndex = unspawnNotes.length;
 		eventNotes = [];
 	}
 
@@ -3656,51 +3607,105 @@ if (gainHealth) health += note.hitHealth * healthGain;
 		#end
 	}
 
-	public function initLuaShader(name:String, ?glslVersion:Int = 120)
-	{
-		if(!ClientPrefs.data.shaders) return false;
+public function initLuaShader(name:String, ?glslVersion:Int = 120):Bool
+{
+	if(!ClientPrefs.data.shaders) return false;
 
-		#if (!flash && sys)
-		if(runtimeShaders.exists(name))
+	#if (!flash && sys)
+	if(runtimeShaders.exists(name))
+	{
+		FlxG.log.warn('Shader $name was already initialized!');
+		return true;
+	}
+
+	for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'shaders/'))
+	{
+		var frag:String = folder + name + '.frag';
+		var vert:String = folder + name + '.vert';
+		var found:Bool = false;
+
+		if(FileSystem.exists(frag))
 		{
-			FlxG.log.warn('Shader $name was already initialized!');
+			frag = File.getContent(frag);
+			found = true;
+		}
+		else frag = null;
+
+		if(FileSystem.exists(vert))
+		{
+			vert = File.getContent(vert);
+			found = true;
+		}
+		else vert = null;
+
+		if(found)
+		{
+			runtimeShaders.set(name, [frag, vert]);
 			return true;
 		}
+	}
 
-		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'shaders/'))
-		{
-			var frag:String = folder + name + '.frag';
-			var vert:String = folder + name + '.vert';
-			var found:Bool = false;
-			if(FileSystem.exists(frag))
-			{
-				frag = File.getContent(frag);
-				found = true;
-			}
-			else frag = null;
+	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
+	addTextToDebug('Missing shader $name .frag AND .vert files!', FlxColor.RED);
+	#else
+	FlxG.log.warn('Missing shader $name .frag AND .vert files!');
+	#end
 
-			if(FileSystem.exists(vert))
-			{
-				vert = File.getContent(vert);
-				found = true;
-			}
-			else vert = null;
+	#else
+	FlxG.log.warn('This platform doesn\'t support Runtime Shaders!');
+	#end
 
-			if(found)
-			{
-				runtimeShaders.set(name, [frag, vert]);
-				//trace('Found shader $name!');
-				return true;
-			}
-		}
-			#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-			addTextToDebug('Missing shader $name .frag AND .vert files!', FlxColor.RED);
-			#else
-			FlxG.log.warn('Missing shader $name .frag AND .vert files!');
-			#end
-		#else
-		FlxG.log.warn('This platform doesn\'t support Runtime Shaders!');
-		#end
-		return false;
+	return false;
+}
+} // ✅ THIS LINE CLOSES PlayState
+
+
+
+// ===============================
+// Lightweight chart note container
+// ===============================
+class ChartNoteData
+{
+	public var strumTime:Float;
+	public var noteData:Int;
+	public var sustainLength:Float;
+	public var mustPress:Bool;
+	public var noteType:String;
+	public var animSuffix:String;
+	public var gfNote:Bool;
+	public var isSustainNote:Bool;
+	public var multSpeed:Float;
+	public var parentIndex:Int;
+
+	public function new(
+		strumTime:Float,
+		noteData:Int,
+		sustainLength:Float,
+		mustPress:Bool,
+		noteType:String,
+		animSuffix:String,
+		gfNote:Bool,
+		isSustainNote:Bool,
+		multSpeed:Float,
+		parentIndex:Int = -1
+	)
+	{
+		this.strumTime = strumTime;
+		this.noteData = noteData;
+		this.sustainLength = sustainLength;
+		this.mustPress = mustPress;
+		this.noteType = noteType;
+		this.animSuffix = animSuffix;
+		this.gfNote = gfNote;
+		this.isSustainNote = isSustainNote;
+		this.multSpeed = multSpeed;
+		this.parentIndex = parentIndex;
+	}
+
+	public function resizeByRatio(ratio:Float):Void
+	{
+		strumTime *= ratio;
+		sustainLength *= ratio;
 	}
 }
+
