@@ -522,6 +522,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 		loadMax = 0;
 		initialThreadCompleted = true;
 		isIntrusive = false;
+		resetPreloadQueues();
 
 		FlxTransitionableState.skipNextTransIn = true;
 		if (threadPool != null) threadPool.shutdown(); // kill all workers safely
@@ -587,11 +588,40 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 	static var soundsToPrepare:Array<String> = [];
 	static var musicToPrepare:Array<String> = [];
 	static var songsToPrepare:Array<String> = [];
+	static var imagesToPrepareSet:Map<String, Bool> = new Map<String, Bool>();
+	static var soundsToPrepareSet:Map<String, Bool> = new Map<String, Bool>();
+	static var musicToPrepareSet:Map<String, Bool> = new Map<String, Bool>();
+	static var songsToPrepareSet:Map<String, Bool> = new Map<String, Bool>();
+
+	static inline function resetPreloadQueues():Void
+	{
+		imagesToPrepare = [];
+		soundsToPrepare = [];
+		musicToPrepare = [];
+		songsToPrepare = [];
+		imagesToPrepareSet = new Map<String, Bool>();
+		soundsToPrepareSet = new Map<String, Bool>();
+		musicToPrepareSet = new Map<String, Bool>();
+		songsToPrepareSet = new Map<String, Bool>();
+	}
+
+	static inline function queueUnique(arr:Array<String>, set:Map<String, Bool>, value:String):Void
+	{
+		if (value == null) return;
+		var trimmed = value.trim();
+		if (trimmed.length == 0) return;
+		if (!set.exists(trimmed))
+		{
+			set.set(trimmed, true);
+			arr.push(trimmed);
+		}
+	}
+
 	public static function prepare(images:Array<String> = null, sounds:Array<String> = null, music:Array<String> = null)
 	{
-		if (images != null) imagesToPrepare = imagesToPrepare.concat(images);
-		if (sounds != null) soundsToPrepare = soundsToPrepare.concat(sounds);
-		if (music != null) musicToPrepare = musicToPrepare.concat(music);
+		if (images != null) for (image in images) queueUnique(imagesToPrepare, imagesToPrepareSet, image);
+		if (sounds != null) for (sound in sounds) queueUnique(soundsToPrepare, soundsToPrepareSet, sound);
+		if (music != null) for (track in music) queueUnique(musicToPrepare, musicToPrepareSet, track);
 	}
 
 	static var initialThreadCompleted:Bool = true;
@@ -611,10 +641,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 	{
 		if(PlayState.SONG == null)
 		{
-			imagesToPrepare = [];
-			soundsToPrepare = [];
-			musicToPrepare = [];
-			songsToPrepare = [];
+			resetPreloadQueues();
 			loaded = 0;
 			loadMax = 0;
 			initialThreadCompleted = true;
@@ -623,10 +650,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 		}
 
 		_startPool();
-		imagesToPrepare = [];
-		soundsToPrepare = [];
-		musicToPrepare = [];
-		songsToPrepare = [];
+		resetPreloadQueues();
 
 		initialThreadCompleted = false;
 		var threadsCompleted:Int = 0;
@@ -651,14 +675,14 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 	
 			var customSkin:String = noteSkin + Note.getNoteSkinPostfix();
 			if(Paths.fileExists('images/$customSkin.png', IMAGE)) noteSkin = customSkin;
-			imagesToPrepare.push(noteSkin);
+			queueUnique(imagesToPrepare, imagesToPrepareSet, noteSkin);
 			//
 
 			// LOAD NOTE SPLASH IMAGE
 			var noteSplash:String = NoteSplash.defaultNoteSplash;
 			if(PlayState.SONG.splashSkin != null && PlayState.SONG.splashSkin.length > 0) noteSplash = PlayState.SONG.splashSkin;
 			else noteSplash += NoteSplash.getSplashSkinPostfix();
-			imagesToPrepare.push(noteSplash);
+			queueUnique(imagesToPrepare, imagesToPrepareSet, noteSplash);
 
 			try
 			{
@@ -740,7 +764,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 				prepare(imgs, snds, mscs);
 			}
 
-			songsToPrepare.push('$folder/Inst');
+			queueUnique(songsToPrepare, songsToPrepareSet, '$folder/Inst');
 
 			var player1:String = song.player1;
 			var player2:String = song.player2;
@@ -754,11 +778,11 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 			{
 				if(Paths.fileExists('$prefixVocals-Player.${Paths.SOUND_EXT}', SOUND, false, 'songs') && Paths.fileExists('$prefixVocals-Opponent.${Paths.SOUND_EXT}', SOUND, false, 'songs'))
 				{
-					songsToPrepare.push('$prefixVocals-Player');
-					songsToPrepare.push('$prefixVocals-Opponent');
+					queueUnique(songsToPrepare, songsToPrepareSet, '$prefixVocals-Player');
+					queueUnique(songsToPrepare, songsToPrepareSet, '$prefixVocals-Opponent');
 				}
 				else if(Paths.fileExists('$prefixVocals.${Paths.SOUND_EXT}', SOUND, false, 'songs'))
-					songsToPrepare.push(prefixVocals);
+					queueUnique(songsToPrepare, songsToPrepareSet, prefixVocals);
 			}
 
 			if (player2 != player1)
@@ -920,7 +944,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 				var split:Array<String> = img.split(',');
 				for (file in split)
 				{
-					imagesToPrepare.push(file.trim());
+					queueUnique(imagesToPrepare, imagesToPrepareSet, file.trim());
 				}
 			}
 			#if flxanimate
@@ -934,7 +958,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 					if(Paths.fileExists('images/$img/spritemap$st.png', IMAGE))
 					{
 						//trace('found Sprite PNG');
-						imagesToPrepare.push('$img/spritemap$st');
+						queueUnique(imagesToPrepare, imagesToPrepareSet, '$img/spritemap$st');
 						break;
 					}
 				}
@@ -943,7 +967,7 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 	
 			if (prefixVocals != null && character.vocals_file != null && character.vocals_file.length > 0)
 			{
-				songsToPrepare.push(prefixVocals + "-" + character.vocals_file);
+				queueUnique(songsToPrepare, songsToPrepareSet, prefixVocals + "-" + character.vocals_file);
 				if(char == PlayState.SONG.player1) dontPreloadDefaultVoices = true;
 			}
 		}
