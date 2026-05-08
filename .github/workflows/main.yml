@@ -1,94 +1,77 @@
 name: Build
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     branches: [ main, experimental ]
-
   pull_request:
     branches: [ main, experimental ]
-
   workflow_dispatch:
-
-  workflow_call:
-    inputs:
-      tag_name:
-        required: false
-        type: string
-
-permissions:
-  contents: read
 
 jobs:
   buildLinux:
-    name: Linux Build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.1.7
 
       - uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.4
 
-      - name: Install dependencies
+      - name: Install Haxelib
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libvlc-dev libvlccore-dev zip
+          sudo apt-get install libvlc-dev
+          sudo apt-get install libvlccore-dev
           haxelib setup ~/haxelib
           haxelib install hxcpp > /dev/null --quiet
           chmod +x ./setup/unix.sh
           sh ./setup/unix.sh
 
-      - name: Version file
-        run: |
-          echo "${{ inputs.tag_name || github.run_id }}" > VERSION
+      - name: Skip SScript setup mode
+        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
 
-      - name: Compile Linux
-        run: |
-          haxelib run lime build Project.xml linux \
-          --app-version="4.0.0-${{ github.run_id }}" \
-          -D officialBuild
+      - name: Create Version Tag
+        run: echo "${{github.run_id}}" > VERSION
 
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4.6.0
+      - name: Compile
+        run: haxelib run lime build Project.xml linux --app-version="4.0.0-${{ github.run_id}}" -D officialBuild
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: linuxBuild
           path: export/release/linux/bin
 
   buildWindows:
-    name: Windows Build
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.1.7
 
       - uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.4
 
-      - name: Install dependencies
+      - name: Install Haxelib
         shell: cmd
         run: |
           haxelib setup C:/haxelib
-          haxelib install hxcpp
-          call setup/windows.bat
+          haxelib install hxcpp > /dev/null --quiet
+          .\"setup/windows.bat"
 
-      - name: Version file
-        shell: bash
-        run: |
-          echo "${{ inputs.tag_name || github.run_id }}" > VERSION
+      - name: Skip SScript setup mode
+        shell: cmd
+        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> %USERPROFILE%/settings.cocoa
 
-      - name: Compile Windows
-        run: |
-          haxelib run lime build windows \
-          --app-version="4.0.0-${{ github.run_id }}" \
-          -D officialBuild
+      - name: Create Version Tag
+        shell: cmd
+        run: echo "${{github.run_id}}" > VERSION
 
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4.6.0
+      - name: Compile
+        run: haxelib run lime build windows --app-version="4.0.0-${{ github.run_id}}" -D officialBuild
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: windowsBuild
           path: export/release/windows/bin
