@@ -32,6 +32,7 @@ import states.TitleState;
 	public var realtimeSlowmo:Bool = false;
 	public var disableGCLag:Bool = false;
 	public var noteShaders:Bool = true;
+	public var gameRenderer:Bool = false; // Requires FFmpeg
 	public var arrowRGB:Array<Array<FlxColor>> = [
 		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
 		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
