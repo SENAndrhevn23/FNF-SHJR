@@ -32,6 +32,7 @@ typedef SwagSong =
 	@:optional var gameOverEnd:String;
 
 	@:optional var disableNoteRGB:Bool;
+
 	@:optional var arrowSkin:String;
 	@:optional var splashSkin:String;
 }
@@ -57,34 +58,57 @@ class Song
 	{
 		if (songJson == null) return;
 
-		if (songJson.notes == null) songJson.notes = [];
-		if (songJson.events == null) songJson.events = [];
+		if (songJson.notes == null)
+			songJson.notes = [];
+
+		if (songJson.events == null)
+			songJson.events = [];
 
 		if (songJson.gfVersion == null)
 		{
 			songJson.gfVersion = songJson.player3;
-			if (Reflect.hasField(songJson, "player3"))
-				Reflect.deleteField(songJson, "player3");
+			if (Reflect.hasField(songJson, 'player3'))
+				Reflect.deleteField(songJson, 'player3');
 		}
 
-		var mergedEvents:Array<Dynamic> = songJson.events.copy();
+		var sectionsData:Array<SwagSection> = cast songJson.notes;
+		if (sectionsData == null) return;
 
-		for (section in songJson.notes)
+		var mergedEvents:Array<Dynamic> = [];
+		if (songJson.events != null)
+			mergedEvents = cast songJson.events.copy();
+
+		for (section in sectionsData)
 		{
+			if (section == null) continue;
+
 			if (section.sectionNotes == null)
 				section.sectionNotes = [];
 
-			var fixedNotes:Array<Dynamic> = [];
-
-			for (rawNote in section.sectionNotes)
+			var beats:Null<Float> = Std.parseFloat(Std.string(section.sectionBeats));
+			if (beats == null || Math.isNaN(beats))
 			{
+				section.sectionBeats = 4;
+				if (Reflect.hasField(section, 'lengthInSteps'))
+					Reflect.deleteField(section, 'lengthInSteps');
+			}
+			else
+			{
+				section.sectionBeats = beats;
+			}
+
+			var fixedNotes:Array<Dynamic> = [];
+			var sectionNotes:Array<Dynamic> = cast section.sectionNotes;
+
+			for (rawNote in sectionNotes)
+			{
+				if (rawNote == null) continue;
+
 				var note:Array<Dynamic> = cast rawNote;
 				if (note == null || note.length < 2) continue;
 
-				var strumTime:Null<Float> =
-					Std.parseFloat(Std.string(note[0]));
-				var lane:Null<Int> =
-					Std.parseInt(Std.string(note[1]));
+				var strumTime:Null<Float> = Std.parseFloat(Std.string(note[0]));
+				var lane:Null<Int> = Std.parseInt(Std.string(note[1]));
 
 				if (strumTime == null || Math.isNaN(strumTime) || lane == null)
 					continue;
@@ -94,10 +118,8 @@ class Song
 
 				if (note.length > 2)
 				{
-					var sus:Null<Float> =
-						Std.parseFloat(Std.string(note[2]));
-					note[2] =
-						(sus == null || Math.isNaN(sus) || sus < 0) ? 0 : sus;
+					var susLength:Null<Float> = Std.parseFloat(Std.string(note[2]));
+					note[2] = (susLength == null || Math.isNaN(susLength) || susLength < 0) ? 0 : susLength;
 				}
 
 				if (lane < 0)
@@ -111,16 +133,14 @@ class Song
 					continue;
 				}
 
-				var gottaHit:Bool =
-					(lane < 4) ? section.mustHitSection : !section.mustHitSection;
-
-				note[1] = (lane % 4) + (gottaHit ? 0 : 4);
+				var gottaHitNote:Bool = (lane < 4) ? section.mustHitSection : !section.mustHitSection;
+				note[1] = (lane % 4) + (gottaHitNote ? 0 : 4);
 
 				if (note.length > 3 && note[3] != null && !Std.isOfType(note[3], String))
 				{
-					var idx:Int = Std.int(cast note[3]);
-					if (idx >= 0 && idx < Note.defaultNoteTypes.length)
-						note[3] = Note.defaultNoteTypes[idx];
+					var noteTypeIndex:Int = Std.int(cast note[3]);
+					if (noteTypeIndex >= 0 && noteTypeIndex < Note.defaultNoteTypes.length)
+						note[3] = Note.defaultNoteTypes[noteTypeIndex];
 					else
 						note[3] = "";
 				}
@@ -160,7 +180,7 @@ class Song
 			return null;
 
 		#if windows
-		chartPath = chartPath.replace("/", "\\");
+		chartPath = chartPath.replace('/', '\\');
 		#end
 
 		StageData.loadDirectory(PlayState.SONG);
@@ -187,7 +207,7 @@ class Song
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
 
-	public static function parseJSON(rawData:String, ?nameForError:String = null):SwagSong
+	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
 	{
 		if (rawData == null || rawData.length == 0)
 			return null;
@@ -196,24 +216,34 @@ class Song
 		if (songJson == null)
 			return null;
 
-		if (Reflect.hasField(songJson, "song"))
+		if (Reflect.hasField(songJson, 'song'))
 		{
-			var subSong:Dynamic = Reflect.field(songJson, "song");
-			if (subSong != null && Type.typeof(subSong) == TObject)
+			var subSong:Dynamic = Reflect.field(songJson, 'song');
+			if (subSong != null && Reflect.isObject(subSong))
 				songJson = subSong;
 		}
 
-		if (songJson.notes == null) songJson.notes = [];
-		if (songJson.events == null) songJson.events = [];
+		if (songJson.notes == null)
+			songJson.notes = [];
 
-		var fmt:String = songJson.format;
-		if (fmt == null) fmt = songJson.format = "unknown";
+		if (songJson.events == null)
+			songJson.events = [];
 
-		if (!fmt.startsWith("psych_v1"))
+		if (convertTo != null && convertTo.length > 0)
 		{
-			trace('Converting chart $nameForError from $fmt...');
-			songJson.format = "psych_v1_convert";
-			convert(songJson);
+			var fmt:String = songJson.format;
+			if (fmt == null) fmt = songJson.format = 'unknown';
+
+			switch (convertTo)
+			{
+				case 'psych_v1':
+					if (!fmt.startsWith('psych_v1'))
+					{
+						trace('converting chart $nameForError with format $fmt to psych_v1 format...');
+						songJson.format = 'psych_v1_convert';
+						convert(songJson);
+					}
+			}
 		}
 
 		return cast songJson;
