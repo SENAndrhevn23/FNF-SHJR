@@ -2827,15 +2827,15 @@ function addNoteStackingTab()
 	{
 		stepperStackNum.value *= 2;
 	});
-	doubleSpamNum.resize(40, 24);
+	doubleSpamNum.resize(32, 22);
 	doubleSpamNum.normalStyle.bgColor = FlxColor.GREEN;
 	doubleSpamNum.normalStyle.textColor = FlxColor.WHITE;
 
-	var halfSpamNum:PsychUIButton = new PsychUIButton(stepperStackNum.x + 45, stepperStackNum.y + 20, 'x0.5', function()
+	var halfSpamNum:PsychUIButton = new PsychUIButton(stepperStackNum.x + 37, stepperStackNum.y + 20, 'x0.5', function()
 	{
 		stepperStackNum.value = Math.max(0, stepperStackNum.value / 2);
 	});
-	halfSpamNum.resize(55, 24);
+	halfSpamNum.resize(46, 22);
 	halfSpamNum.normalStyle.bgColor = FlxColor.RED;
 	halfSpamNum.normalStyle.textColor = FlxColor.WHITE;
 	tab_group.add(doubleSpamNum);
@@ -2850,15 +2850,15 @@ function addNoteStackingTab()
 	{
 		stepperStackOffset.value *= 2;
 	});
-	doubleSpamMult.resize(40, 24);
+	doubleSpamMult.resize(32, 22);
 	doubleSpamMult.normalStyle.bgColor = FlxColor.GREEN;
 	doubleSpamMult.normalStyle.textColor = FlxColor.WHITE;
 
-	var halfSpamMult:PsychUIButton = new PsychUIButton(stepperStackOffset.x + 45, stepperStackOffset.y + 20, 'x0.5', function()
+	var halfSpamMult:PsychUIButton = new PsychUIButton(stepperStackOffset.x + 37, stepperStackOffset.y + 20, 'x0.5', function()
 	{
 		stepperStackOffset.value = Math.max(1, stepperStackOffset.value / 2);
 	});
-	halfSpamMult.resize(55, 24);
+	halfSpamMult.resize(46, 22);
 	halfSpamMult.normalStyle.bgColor = FlxColor.RED;
 	halfSpamMult.normalStyle.textColor = FlxColor.WHITE;
 	tab_group.add(doubleSpamMult);
@@ -2878,15 +2878,15 @@ function addNoteStackingTab()
 	{
 		stepperShrinkAmount.value *= 2;
 	});
-	doubleShrinker.resize(40, 24);
+	doubleShrinker.resize(32, 22);
 	doubleShrinker.normalStyle.bgColor = FlxColor.GREEN;
 	doubleShrinker.normalStyle.textColor = FlxColor.WHITE;
 
-	var halfShrinker:PsychUIButton = new PsychUIButton(stepperShrinkAmount.x + 45, stepperShrinkAmount.y + 20, 'x0.5', function()
+	var halfShrinker:PsychUIButton = new PsychUIButton(stepperShrinkAmount.x + 37, stepperShrinkAmount.y + 20, 'x0.5', function()
 	{
 		stepperShrinkAmount.value = Math.max(0, stepperShrinkAmount.value / 2);
 	});
-	halfShrinker.resize(55, 24);
+	halfShrinker.resize(46, 22);
 	halfShrinker.normalStyle.bgColor = FlxColor.RED;
 	halfShrinker.normalStyle.textColor = FlxColor.WHITE;
 	tab_group.add(doubleShrinker);
@@ -2897,7 +2897,7 @@ function addNoteStackingTab()
 	tab_group.add(new FlxText(objX, objY - 15, 120, 'Steps to Shift By'));
 	tab_group.add(stepperShiftSteps);
 
-	var shiftNotesButton:PsychUIButton = new PsychUIButton(stepperShiftSteps.x + 100, stepperShiftSteps.y, 'Shift Notes', function()
+	var shiftNotesButton:PsychUIButton = new PsychUIButton(stepperShiftSteps.x + 78, stepperShiftSteps.y, 'Shift', function()
 	{
 		var sectionStart:Float = cachedSectionTimes[curSec];
 		var sectionEnd:Float = (curSec + 1 < cachedSectionTimes.length) ? cachedSectionTimes[curSec + 1] : Math.POSITIVE_INFINITY;
@@ -2920,7 +2920,7 @@ function addNoteStackingTab()
 			updateChartData();
 		}
 	});
-	shiftNotesButton.resize(85, 24);
+	shiftNotesButton.resize(62, 22);
 	tab_group.add(shiftNotesButton);
 
 	objY += 40;
@@ -2928,7 +2928,7 @@ function addNoteStackingTab()
 	tab_group.add(new FlxText(objX, objY - 15, 120, 'Amount of Duplicates'));
 	tab_group.add(stepperDuplicateAmount);
 
-	var dupeNotesButton:PsychUIButton = new PsychUIButton(stepperDuplicateAmount.x + 120, stepperDuplicateAmount.y, 'Duplicate', function()
+	var dupeNotesButton:PsychUIButton = new PsychUIButton(stepperDuplicateAmount.x + 78, stepperDuplicateAmount.y, 'Dupe', function()
 	{
 		var sectionStart:Float = cachedSectionTimes[curSec];
 		var sectionEnd:Float = (curSec + 1 < cachedSectionTimes.length) ? cachedSectionTimes[curSec + 1] : Math.POSITIVE_INFINITY;
