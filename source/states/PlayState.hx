@@ -1640,6 +1640,7 @@ public function clearNotesBefore(time:Float)
 		var daBpm:Float = Conductor.bpm;
 		var noteLookup:Map<String, Dynamic> = new Map<String, Dynamic>();
 		var noteTypeLookup:Map<String, Bool> = new Map<String, Bool>();
+		var ghostNotesCaught:Int = 0;
 
 		for (section in sectionsData)
 		{
