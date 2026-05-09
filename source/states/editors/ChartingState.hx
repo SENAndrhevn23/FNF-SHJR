@@ -241,6 +241,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var newWidth:Int = 320;
 		var newHeight:Int = Std.int(Math.max(260, 24 + (lines * 22)));
 
+		var fixedX:Float = infoBox.x;
+		var fixedY:Float = infoBox.y;
+
 		infoText.fieldWidth = newWidth - 32;
 		infoText.x = 16;
 		infoText.y = 18;
@@ -255,6 +258,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		{
 			infoBox.bg.setGraphicSize(newWidth, newHeight);
 			infoBox.bg.updateHitbox();
+		}
+
+		if(Reflect.hasField(box, 'setPosition'))
+			Reflect.callMethod(box, Reflect.field(box, 'setPosition'), [fixedX, fixedY]);
+		else
+		{
+			infoBox.x = fixedX;
+			infoBox.y = fixedY;
 		}
 	}
 
