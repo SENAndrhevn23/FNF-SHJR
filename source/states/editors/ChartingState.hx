@@ -201,6 +201,89 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		super();
 	}
 
+	inline function formatCount(value:Int):String
+	{
+		var str:String = Std.string(value);
+		var parts:Array<String> = [];
+
+		while(str.length > 3)
+		{
+			parts.unshift(str.substr(str.length - 3, 3));
+			str = str.substr(0, str.length - 3);
+		}
+
+		if(str.length > 0) parts.unshift(str);
+		return parts.join(',');
+	}
+
+	function getCurrentSectionNoteCount():Int
+	{
+		if(PlayState.SONG == null || curSec < 0 || curSec >= PlayState.SONG.notes.length) return 0;
+		var sec = PlayState.SONG.notes[curSec];
+		return sec != null && sec.sectionNotes != null ? sec.sectionNotes.length : 0;
+	}
+
+	function getRenderedNoteCount():Int
+	{
+		var count:Int = 0;
+		for (note in curRenderedNotes)
+		{
+			if(note != null && !note.isEvent) count++;
+		}
+		return count;
+	}
+
+	function updateInfoBoxSize(text:String):Void
+	{
+		if(infoBox == null || infoText == null) return;
+
+		var lines:Int = text.split('\n').length;
+		var newWidth:Int = 320;
+		var newHeight:Int = Std.int(Math.max(260, 24 + (lines * 22)));
+
+		infoText.fieldWidth = newWidth - 32;
+		infoText.x = 16;
+		infoText.y = 18;
+		infoText.autoSize = false;
+
+		var box:Dynamic = infoBox;
+		if(Reflect.hasField(box, 'resize'))
+			Reflect.callMethod(box, Reflect.field(box, 'resize'), [newWidth, newHeight]);
+		else if(Reflect.hasField(box, 'setSize'))
+			Reflect.callMethod(box, Reflect.field(box, 'setSize'), [newWidth, newHeight]);
+		else if(infoBox.bg != null)
+		{
+			infoBox.bg.setGraphicSize(newWidth, newHeight);
+			infoBox.bg.updateHitbox();
+		}
+	}
+
+	function updateInfoText():Void
+	{
+		if(infoText == null) return;
+
+		var curTime:String = FlxStringUtil.formatTime(Conductor.songPosition / 1000, true);
+		var songLength:String = (FlxG.sound.music != null) ? FlxStringUtil.formatTime(FlxG.sound.music.length / 1000, true) : '???';
+		var totalNotes:Int = notes.length;
+		var sectionNotes:Int = getCurrentSectionNoteCount();
+		var renderedNotes:Int = getRenderedNoteCount();
+
+		var str:String =  '$curTime / $songLength' +
+						  '\n\nStep: $curStep' +
+						  '\nNotes: ${formatCount(totalNotes)}' +
+						  '\nSection Notes: ${formatCount(sectionNotes)}' +
+						  '\nRendered Notes: ${formatCount(renderedNotes)}' +
+						  '\nSection: $curSec' +
+						  '\n\nBeat Snap: ${curQuant} / 16' +
+						  '\nSelected: ${selectedNotes.length}';
+
+		if(str != infoText.text)
+		{
+			infoText.text = str;
+			updateInfoBoxSize(str);
+		}
+	}
+
 	var bg:FlxSprite;
 	var theme:ChartingTheme = DEFAULT;
 
@@ -374,11 +457,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		selectionBox.visible = false;
 		add(selectionBox);
 
-		infoBox = new PsychUIBox(infoBoxPosition.x, infoBoxPosition.y, 220, 220, ['Information']);
+		infoBox = new PsychUIBox(infoBoxPosition.x, infoBoxPosition.y, 320, 260, ['Information']);
 		infoBox.scrollFactor.set();
 		infoBox.cameras = [camUI];
-		infoText = new FlxText(15, 15, 230, '', 16);
+		infoText = new FlxText(16, 18, 288, '', 16);
 		infoText.scrollFactor.set();
+		infoText.wordWrap = true;
+		infoText.autoSize = false;
 		infoBox.getTab('Information').menu.add(infoText);
 		add(infoBox);
 
@@ -1411,20 +1496,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		if(Conductor.songPosition != lastTime || forceDataUpdate)
 		{
-			var curTime:String = FlxStringUtil.formatTime(Conductor.songPosition / 1000, true);
-			var songLength:String = (FlxG.sound.music != null) ? FlxStringUtil.formatTime(FlxG.sound.music.length / 1000, true) : '???';
-			var str:String =  '$curTime / $songLength' +
-							  '\n\nSection: $curSec' +
-							  '\nBeat: $curBeat' +
-							  '\nStep: $curStep' +
-							  '\n\nBeat Snap: ${curQuant} / 16' +
-							  '\nSelected: ${selectedNotes.length}';
-
-			if(str != infoText.text)
-			{
-				infoText.text = str;
-				if(infoText.autoSize) infoText.autoSize = false;
-			}
+			updateInfoText();
 
 			var vortexPlaying:Bool = (vortexEnabled && FlxG.sound.music != null && FlxG.sound.music.playing);
 			var canPlayHitSound:Bool = (FlxG.sound.music != null && FlxG.sound.music.playing && lastTime < Conductor.songPosition);
@@ -2209,6 +2281,7 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 		prevGridBg.vortexLineEnabled = gridBg.vortexLineEnabled = nextGridBg.vortexLineEnabled = vortexEnabled;
 		prevGridBg.vortexLineSpace = gridBg.vortexLineSpace = nextGridBg.vortexLineSpace = GRID_SIZE * 4 * curZoom;
 		updateWaveform();
+		updateInfoText();
 	}
 
 	function softReloadNotes(onlyCurrent:Bool = false)
