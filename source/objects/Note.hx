@@ -163,7 +163,7 @@ class Note extends FlxSprite
         var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData];
         if (PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData];
 
-        if (arr != null && noteData > -1 && noteData < arr.length) {
+        if (arr != null && noteData > -1 && noteData <= arr.length) {
             rgbShader.r = arr[0];
             rgbShader.g = arr[1];
             rgbShader.b = arr[2];
@@ -330,7 +330,7 @@ class Note extends FlxSprite
             var newRGB:RGBPalette = new RGBPalette();
             var arr:Array<FlxColor> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB[noteData] : ClientPrefs.data.arrowRGBPixel[noteData];
 
-            if (arr != null && noteData > -1 && noteData < arr.length) {
+            if (arr != null && noteData > -1 && noteData <= arr.length) {
                 newRGB.r = arr[0];
                 newRGB.g = arr[1];
                 newRGB.b = arr[2];
@@ -506,14 +506,10 @@ class Note extends FlxSprite
 
         if (copyY) {
             y = strumY + offsetY + correctionOffset + Math.sin(angleDir) * distance;
-
             if (myStrum.downScroll && isSustainNote) {
                 if (PlayState.isPixelStage)
                     y -= PlayState.daPixelZoom * 9.5;
-
-                // Keep sustain notes anchored to the strum line instead of drifting above it
-                // when many botplay notes are stacked close together.
-                y -= Math.max(0, height - (Note.swagWidth / 2));
+                y -= (frameHeight * scale.y) - (Note.swagWidth / 2);
             }
         }
     }
@@ -521,38 +517,30 @@ class Note extends FlxSprite
     public function clipToStrumNote(myStrum:StrumNote) {
         var center:Float = myStrum.y + offsetY + Note.swagWidth / 2;
 
-        // Always clear the previous frame's crop first so long note tails do not
-        // inherit an old clip rectangle when many notes are being processed.
-        clipRect = null;
-
-        if ((mustPress || !ignoreNote) && (wasGoodHit || (prevNote != null && prevNote.wasGoodHit && !canBeHit))) {
-            var swagRect:FlxRect = new FlxRect(0, 0, frameWidth, frameHeight);
+        if ((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit))) {
+            var swagRect:FlxRect = clipRect;
+            if (swagRect == null) swagRect = new FlxRect(0, 0, frameWidth, frameHeight);
 
             if (myStrum.downScroll) {
-                var cutY:Float = (center - y) / scale.y;
                 if (y - offset.y * scale.y + height >= center) {
                     swagRect.width = frameWidth;
-                    swagRect.height = Math.max(0, cutY);
-                    swagRect.y = Math.max(0, frameHeight - swagRect.height);
-                    clipRect = swagRect;
+                    swagRect.height = (center - y) / scale.y;
+                    swagRect.y = frameHeight - swagRect.height;
                 }
-            } else {
-                var cutTop:Float = (center - y) / scale.y;
-                if (y + offset.y * scale.y <= center) {
-                    swagRect.y = Math.max(0, cutTop);
-                    swagRect.width = width / scale.x;
-                    swagRect.height = Math.max(0, (height / scale.y) - swagRect.y);
-                    clipRect = swagRect;
-                }
+            } else if (y + offset.y * scale.y <= center) {
+                swagRect.y = (center - y) / scale.y;
+                swagRect.width = width / scale.x;
+                swagRect.height = (height / scale.y) - swagRect.y;
             }
+            clipRect = swagRect;
         }
     }
 
     @:noCompletion
     override function set_clipRect(rect:FlxRect):FlxRect {
-        var result:FlxRect = super.set_clipRect(rect);
-        if (frames != null && animation != null && animation.frameIndex >= 0 && animation.frameIndex < frames.frames.length)
+        clipRect = rect;
+        if (frames != null)
             frame = frames.frames[animation.frameIndex];
-        return result;
+        return rect;
     }
 }
