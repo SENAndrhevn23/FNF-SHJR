@@ -141,6 +141,7 @@ class PlayState extends MusicBeatState
 	private var renderPrevUpdateFramerate:Int = 60;
 	private var renderPrevDrawFramerate:Int = 60;
 	private var renderPrevFixedTimestep:Bool = false;
+	private var prevAutoPause:Bool = true;
 
 	public var renderWorker:Thread = null;
 	public var renderFrameQueue:Array<Bytes> = [];
@@ -353,6 +354,8 @@ class PlayState extends MusicBeatState
 
 		persistentUpdate = true;
 		persistentDraw = true;
+		prevAutoPause = FlxG.autoPause;
+		FlxG.autoPause = false;
 		Conductor.mapBPMChanges(SONG);
 		Conductor.bpm = SONG.bpm;
 
@@ -2159,8 +2162,11 @@ if(ClientPrefs.data.disableGCLag)
 								if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
 									goodNoteHit(daNote);
 							}
-							else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
-								opponentNoteHit(daNote);
+							else if(!daNote.hitByOpponent && !daNote.ignoreNote)
+							{
+								if (daNote.wasGoodHit || (daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition)))
+									opponentNoteHit(daNote);
+							}
 
 							if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
 							// Kill extremely late notes and cause misses
@@ -3520,6 +3526,7 @@ if (gainHealth) health += note.hitHealth * healthGain;
 		backend.NoteTypesConfig.clearNoteTypesData();
 
 		NoteSplash.configs.clear();
+		FlxG.autoPause = prevAutoPause;
 		instance = null;
 		super.destroy();
 	}
