@@ -233,6 +233,17 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		return count;
 	}
 
+	function syncInfoTextLayout():Void
+	{
+		if(infoBox == null || infoText == null) return;
+
+		// Keep the label locked to the box even if the UI menu refreshes/reflows it.
+		infoText.x = infoBox.x + 16;
+		infoText.y = infoBox.y + 18;
+		infoText.scrollFactor.set();
+		infoText.cameras = [camUI];
+	}
+
 	function updateInfoBoxSize(text:String):Void
 	{
 		if(infoBox == null || infoText == null) return;
@@ -245,8 +256,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var fixedY:Float = infoBox.y;
 
 		infoText.fieldWidth = newWidth - 32;
-		infoText.x = 16;
-		infoText.y = 18;
 		infoText.autoSize = false;
 
 		var box:Dynamic = infoBox;
@@ -267,6 +276,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			infoBox.x = fixedX;
 			infoBox.y = fixedY;
 		}
+
+		syncInfoTextLayout();
 	}
 
 	function updateInfoText():Void
@@ -292,6 +303,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		{
 			infoText.text = str;
 			updateInfoBoxSize(str);
+			syncInfoTextLayout();
 		}
 	}
 
@@ -473,10 +485,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		infoBox.cameras = [camUI];
 		infoText = new FlxText(16, 18, 288, '', 16);
 		infoText.scrollFactor.set();
+		infoText.cameras = [camUI];
 		infoText.wordWrap = true;
 		infoText.autoSize = false;
 		infoBox.getTab('Information').menu.add(infoText);
 		add(infoBox);
+		syncInfoTextLayout();
 
 		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Note Spamming', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
@@ -497,6 +511,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			mainBox.setPosition(chartEditorSave.data.mainBoxPosition[0], chartEditorSave.data.mainBoxPosition[1]);
 		if(chartEditorSave.data.infoBoxPosition != null && chartEditorSave.data.infoBoxPosition.length > 1)
 			infoBox.setPosition(chartEditorSave.data.infoBoxPosition[0], chartEditorSave.data.infoBoxPosition[1]);
+		syncInfoTextLayout();
 
 		upperBox = new PsychUIBox(40, 40, 330, 300, ['File', 'Edit', 'View']);
 		upperBox.scrollFactor.set();
@@ -1508,6 +1523,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(Conductor.songPosition != lastTime || forceDataUpdate)
 		{
 			updateInfoText();
+			syncInfoTextLayout();
 
 			var vortexPlaying:Bool = (vortexEnabled && FlxG.sound.music != null && FlxG.sound.music.playing);
 			var canPlayHitSound:Bool = (FlxG.sound.music != null && FlxG.sound.music.playing && lastTime < Conductor.songPosition);
@@ -4833,6 +4849,7 @@ function addNoteStackingTab()
 		{
 			mainBox.setPosition(mainBoxPosition.x, mainBoxPosition.y);
 			infoBox.setPosition(infoBoxPosition.x, infoBoxPosition.y);
+			syncInfoTextLayout();
 			UIEvent(PsychUIBox.DROP_EVENT, btn); //to force a save
 		}, btnWid);
 		btn.text.alignment = LEFT;
