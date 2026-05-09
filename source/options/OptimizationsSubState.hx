@@ -68,6 +68,15 @@ class OptimizationsSubState extends BaseOptionsMenu
         addOption(option);
 
         // -------------------------
+        // Game Renderer (FFmpeg)
+        // -------------------------
+        option = new Option('Game Renderer',
+            "Records gameplay using FFmpeg.\nRequires FFmpeg installed on system PATH.",
+            'gameRenderer',
+            BOOL);
+        addOption(option);
+
+        // -------------------------
         // Change Combo Limit Option
         // -------------------------
         limitComboOption = new Option('Change Combo Limit',
@@ -75,7 +84,7 @@ class OptimizationsSubState extends BaseOptionsMenu
             'limitCombo',
             INT);
         limitComboOption.minValue = 0;
-        limitComboOption.maxValue = 2147483647; // 32-bit max
+        limitComboOption.maxValue = 2147483647;
         limitComboOption.changeValue = 1;
         limitComboOption.decimals = 0;
         addOption(limitComboOption);
@@ -123,7 +132,7 @@ class OptimizationsSubState extends BaseOptionsMenu
             if(GCControl.lastTime >= 5)
             {
                 #if neko || js
-                    Sys.gc();
+                Sys.gc();
                 #end
                 GCControl.lastTime = 0;
             }
