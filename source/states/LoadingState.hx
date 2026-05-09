@@ -566,10 +566,19 @@ static function loadPreloadManifest(path:String):Map<String, Int>
 		_startPool();
 		loadNextDirectory();
 
+		// When transitioning into gameplay, keep the song timer from advancing
+		// while the loading screen is still preparing assets. This prevents the
+		// chart from already being several beats in by the time the state opens.
+		var shouldStopMusic:Bool = stopMusic || Std.isOfType(target, PlayState);
+
 		if(intrusive)
-			return new LoadingState(target, stopMusic);
+		{
+			if (shouldStopMusic && FlxG.sound.music != null)
+				FlxG.sound.music.stop();
+			return new LoadingState(target, shouldStopMusic);
+		}
 		
-		if (stopMusic && FlxG.sound.music != null)
+		if (shouldStopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
 		while(true)
