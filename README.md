@@ -4,9 +4,6 @@ Welcome to **SH+ANJR ENGINE**. This is a custom engine project based on **Psych 
 
 This project is a work in progress and may take some time to fully complete, but the goal is to eventually implement features that rival H-Slice and JS Engine. While it can be used for vanilla gameplay, it is being built with advanced modding in mind.
 
-> [!CAUTION]
-> **CRASH WARNING:** This engine currently only supports JSON files between **10MB and 15MB**. Loading anything larger will result in a crash. This is a known issue and will be addressed in future versions.
-
 ## Current Developers:
 * **SEN_Andrhevn23**: Feature implementation and bug fixes.
 * **BestDancer2019**: General contributor (may be inactive).
