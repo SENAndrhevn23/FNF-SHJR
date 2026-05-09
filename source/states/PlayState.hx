@@ -187,12 +187,7 @@ class PlayState extends MusicBeatState
 	public var boyfriend:Character = null;
 
 	public var notes:FlxTypedGroup<Note>;
-<<<<<<< HEAD
 	public var unspawnNotes:Array<Dynamic> = [];
-=======
-	public var unspawnNotes:Array<ChartNoteData> = [];
-	public var unspawnNoteIndex:Int = 0;
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 	public var eventNotes:Array<EventNote> = [];
 	private var unspawnNoteIndex:Int = 0;
 	private var spawnedNoteChains:Map<String, Note> = new Map<String, Note>();
@@ -688,10 +683,6 @@ class PlayState extends MusicBeatState
 			if(ratio != 1)
 			{
 				for (note in notes.members) if(note != null) note.resizeByRatio(ratio);
-<<<<<<< HEAD
-=======
-				for (i in unspawnNoteIndex...unspawnNotes.length) unspawnNotes[i].resizeByRatio(ratio);
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 			}
 		}
 		songSpeed = value;
@@ -715,10 +706,6 @@ class PlayState extends MusicBeatState
 			if(ratio != 1)
 			{
 				for (note in notes.members) if(note != null) note.resizeByRatio(ratio);
-<<<<<<< HEAD
-=======
-				for (i in unspawnNoteIndex...unspawnNotes.length) unspawnNotes[i].resizeByRatio(ratio);
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 			}
 		}
 		playbackRate = value;
@@ -1139,14 +1126,9 @@ class PlayState extends MusicBeatState
 	
 public function clearNotesBefore(time:Float)
 	{
-<<<<<<< HEAD
 		// Skip every raw note that is safely behind the seek point.
 		if (unspawnNotes.length > 0)
 			unspawnNoteIndex = Std.int(Math.max(unspawnNoteIndex, findUnspawnIndexAtOrAfter(time + 350)));
-=======
-		while (unspawnNoteIndex < unspawnNotes.length && unspawnNotes[unspawnNoteIndex].strumTime - 350 < time)
-			unspawnNoteIndex++;
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 
 		var i:Int = notes.length - 1;
 		while (i >= 0) {
@@ -1656,16 +1638,8 @@ public function clearNotesBefore(time:Float)
 
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
 		var daBpm:Float = Conductor.bpm;
-<<<<<<< HEAD
 		var noteLookup:Map<String, Dynamic> = new Map<String, Dynamic>();
 		var noteTypeLookup:Map<String, Bool> = new Map<String, Bool>();
-=======
-		var noteTypeLookup:Map<String, Bool> = new Map<String, Bool>();
-		var noteKeyLookup:Map<String, Bool> = new Map<String, Bool>();
-
-		unspawnNotes = [];
-		unspawnNoteIndex = 0;
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 
 		for (section in sectionsData)
 		{
@@ -1681,7 +1655,6 @@ public function clearNotesBefore(time:Float)
 				if (Math.isNaN(holdLength))
 					holdLength = 0.0;
 				var gottaHitNote:Bool = (songNotes[1] < totalColumns);
-<<<<<<< HEAD
 
 				var noteKey:String = noteColumn + "|" + gottaHitNote + "|" + noteType + "|"
 				+ spawnTime;
@@ -1717,31 +1690,10 @@ public function clearNotesBefore(time:Float)
 
 				var curStepCrochet:Float = swagNote.stepCrochet;
 				final roundSus:Int = Math.round(swagNote.sustainLength / curStepCrochet);
-=======
-				var noteKey:String = noteColumn + "|" + gottaHitNote + "|" + noteType + "|" + spawnTime;
-				if (noteKeyLookup.exists(noteKey))
-					continue;
-				noteKeyLookup.set(noteKey, true);
-
-				var isAlt:Bool = section.altAnim && !gottaHitNote;
-				var curStepCrochet:Float = 60 / daBpm * 1000 / 4.0;
-				var roundSus:Int = Math.round(holdLength / curStepCrochet);
-				var gfNote:Bool = (section.gfSection && gottaHitNote == section.mustHitSection);
-				var animSuffix:String = isAlt ? "-alt" : "";
-
-				unspawnNotes.push(new ChartNoteData(spawnTime, noteColumn, holdLength, gottaHitNote, noteType, animSuffix, gfNote, false, 1, -1));
-				if(!noteTypeLookup.exists(noteType))
-				{
-					noteTypeLookup.set(noteType, true);
-					noteTypes.push(noteType);
-				}
-
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 				if(roundSus > 0)
 				{
 					for (susNote in 0...roundSus)
 					{
-<<<<<<< HEAD
 						var sustainNote:Dynamic = {
 							strumTime: spawnTime + (curStepCrochet * susNote),
 							noteData: noteColumn,
@@ -1777,23 +1729,6 @@ public function clearNotesBefore(time:Float)
 					noteTypes.push(noteType);
 				}
 				noteLookup.set(noteKey, swagNote);
-=======
-						unspawnNotes.push(new ChartNoteData(
-							spawnTime + (curStepCrochet * susNote),
-							noteColumn,
-							holdLength,
-							gottaHitNote,
-							noteType,
-							animSuffix,
-							gfNote,
-							true,
-							1,
-								-1
-						));
-					}
-				}
-
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 			}
 		}
 		trace('["${SONG.song.toUpperCase()}" CHART INFO]: Ghost Notes Cleared: 0');
@@ -1804,11 +1739,8 @@ public function clearNotesBefore(time:Float)
 		unspawnNotes.sort(sortByTime);
 		generatedMusic = true;
 	}
-<<<<<<< HEAD
 
 
-=======
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 	// called only once per different event (Used for precaching)
 	function eventPushed(event:EventNote) {
 		eventPushedUnique(event);
@@ -2173,48 +2105,6 @@ if(ClientPrefs.data.disableGCLag)
 		}
 		doDeathCheck();
 
-<<<<<<< HEAD
-=======
-		if (unspawnNoteIndex < unspawnNotes.length)
-		{
-			var time:Float = spawnTime * playbackRate;
-			if(songSpeed < 1) time /= songSpeed;
-			var firstSpawn:ChartNoteData = unspawnNotes[unspawnNoteIndex];
-			if(firstSpawn.multSpeed < 1) time /= firstSpawn.multSpeed;
-			var lastMainNote:Note = null;
-
-			while (unspawnNoteIndex < unspawnNotes.length && unspawnNotes[unspawnNoteIndex].strumTime - Conductor.songPosition < time)
-			{
-				var spawnData:ChartNoteData = unspawnNotes[unspawnNoteIndex++];
-				var parentNote:Note = spawnData.isSustainNote ? lastMainNote : null;
-				var dunceNote:Note = new Note(spawnData.strumTime, spawnData.noteData, parentNote, spawnData.isSustainNote);
-				dunceNote.animSuffix = spawnData.animSuffix;
-				dunceNote.mustPress = spawnData.mustPress;
-				dunceNote.gfNote = spawnData.gfNote;
-				dunceNote.noteType = spawnData.noteType;
-				dunceNote.sustainLength = spawnData.sustainLength;
-				dunceNote.multSpeed = spawnData.multSpeed;
-				dunceNote.scrollFactor.set();
-				dunceNote.spawned = true;
-
-				if (spawnData.mustPress)
-					dunceNote.x += FlxG.width / 2;
-				else if(ClientPrefs.data.middleScroll)
-				{
-					dunceNote.x += 310;
-					if(spawnData.noteData > 1)
-						dunceNote.x += FlxG.width / 2 + 25;
-				}
-
-				notes.insert(0, dunceNote);
-				if(!spawnData.isSustainNote) lastMainNote = dunceNote;
-
-				callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
-				callOnHScript('onSpawnNote', [dunceNote]);
-			}
-		}
-
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 		if (generatedMusic)
 		{
 			var spawnedThisFrame:Int = 0;
@@ -2844,13 +2734,8 @@ if(ClientPrefs.data.disableGCLag)
 			});
 			for (i in unspawnNoteIndex...unspawnNotes.length)
 			{
-<<<<<<< HEAD
 				var daNote:Dynamic = unspawnNotes[i];
 				if(daNote != null && !daNote.ignoreNote && daNote.strumTime < songLength - Conductor.safeZoneOffset)
-=======
-				var daNote:ChartNoteData = unspawnNotes[i];
-				if(daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 					health -= 0.05 * healthLoss;
 			}
 
@@ -2962,13 +2847,9 @@ if(ClientPrefs.data.disableGCLag)
 			daNote.visible = false;
 			invalidateNote(daNote);
 		}
-<<<<<<< HEAD
 		unspawnNotes = [];
 		unspawnNoteIndex = 0;
 		spawnedNoteChains = new Map<String, Note>();
-=======
-		unspawnNoteIndex = unspawnNotes.length;
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
 		eventNotes = [];
 	}
 
@@ -4080,30 +3961,9 @@ public function initLuaShader(name:String, ?glslVersion:Int = 120):Bool
 	FlxG.log.warn('This platform doesn\'t support Runtime Shaders!');
 	#end
 
-<<<<<<< HEAD
-			if(found)
-			{
-				runtimeShaders.set(name, [frag, vert]);
-				//trace('Found shader $name!');
-				return true;
-		}
-		}
-			#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-			addTextToDebug('Missing shader $name .frag AND .vert files!', FlxColor.RED);
-			#else
-			FlxG.log.warn('Missing shader $name .frag AND .vert files!');
-			#end
-		#else
-		FlxG.log.warn('This platform doesn\'t support Runtime Shaders!');
-		#end
-		return false;
-	}
-}
-=======
 	return false;
 }
 } // ✅ THIS LINE CLOSES PlayState
-
 
 
 // ===============================
@@ -4153,5 +4013,3 @@ class ChartNoteData
 		sustainLength *= ratio;
 	}
 }
-
->>>>>>> d654547b2eff0bff965cd9ab344a50dd2c9b6f6f
