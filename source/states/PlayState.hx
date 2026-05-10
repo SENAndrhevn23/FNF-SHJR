@@ -210,11 +210,16 @@ class PlayState extends MusicBeatState
 	private var curSong:String = "";
 	public var gfSpeed:Int = 1;
 	public var health(default, set):Float = 1;
-	public var combo:Int = 0;
 
 	public var healthBar:Bar;
 	public var timeBar:Bar;
 	var songPercent:Float = 0;
+
+	// scoretxt stuff
+	var combo:Int = 0;
+    var opCombo:Int = 0;
+
+    var numberDelimit:Bool = true;
 
 	public var ratingsData:Array<Rating> = Rating.loadDefault();
 
@@ -447,6 +452,29 @@ class PlayState extends MusicBeatState
 			gfGroup.scrollFactor.set(0.95, 0.95);
 			gfGroup.add(gf);
 		}
+
+		// scoretxt shit
+
+		function formatD(value:Int):String
+{
+	var str:String = Std.string(value);
+	var result:String = "";
+	var count:Int = 0;
+
+	for(i in 0...str.length)
+	{
+		var c = str.charAt(str.length - 1 - i);
+		result = c + result;
+		count++;
+
+		if(count == 3 && i < str.length - 1)
+		{
+			result = "," + result;
+			count = 0;
+		}
+	}
+	return result;
+}
 
 		dad = new Character(0, 0, SONG.player2);
 		startCharacterPos(dad, true);
@@ -695,7 +723,7 @@ class PlayState extends MusicBeatState
 
 	function set_playbackRate(value:Float):Float
 	{
-		if(renderGameMode || ClientPrefs.data.gameRenderer)
+		if(renderActive || renderGameMode || ClientPrefs.data.gameRenderer)
 			value = 1;
 		#if FLX_PITCH
 		if(generatedMusic)
@@ -1181,39 +1209,86 @@ public function clearNotesBefore(time:Float)
 		callOnScripts('onUpdateScore', [miss]);
 	}
 
-	public dynamic function updateScoreText()
+public dynamic function updateScoreText()
+{
+	// =============================
+	// BOTPLAY VERSION
+	// =============================
+	if(cpuControlled)
 	{
-		var str:String = Language.getPhrase('rating_$ratingName', ratingName);
-		if(totalPlayed != 0)
-		{
-			var percent:Float = CoolUtil.floorDecimal(ratingPercent * 100, 2);
-			str += ' (${percent}%) - ' + Language.getPhrase(ratingFC);
-		}
+		var opComboStr:String;
+		var comboStr:String;
+		var notesStr:String;
+		var scoreStr:String;
 
-		var tempScore:String;
-		if(!instakillOnMiss) tempScore = Language.getPhrase('score_text', 'Score: {1} | Misses: {2} | Rating: {3}', [songScore, songMisses, str]);
-		else tempScore = Language.getPhrase('score_text_instakill', 'Score: {1} | Rating: {2}', [songScore, str]);
-		scoreTxt.text = tempScore;
+		opComboStr = formatScoreNumber(opCombo);
+		comboStr = formatScoreNumber(combo);
+		notesStr = formatScoreNumber(opCombo + combo);
+		scoreStr = formatScoreNumber(songScore);
+
+		scoreTxt.text =
+			'Score: ' + scoreStr +
+			' | Notes: ' + opComboStr +
+			' + ' + comboStr +
+			' = ' + notesStr;
+
+		return; // stop normal HUD
 	}
 
-	public dynamic function fullComboFunction()
+	// =============================
+	// NORMAL PLAYER VERSION
+	// =============================
+	var str:String = Language.getPhrase('rating_$ratingName', ratingName);
+
+	if(totalPlayed != 0)
 	{
-		var sicks:Int = ratingsData[0].hits;
-		var goods:Int = ratingsData[1].hits;
-		var bads:Int = ratingsData[2].hits;
-		var shits:Int = ratingsData[3].hits;
-		ratingFC = "";
-		if(songMisses == 0)
+		var percent:Float = CoolUtil.floorDecimal(ratingPercent * 100, 2);
+		str += ' (${percent}%) - ' + Language.getPhrase(ratingFC);
+	}
+
+	var tempScore:String;
+	if(!instakillOnMiss)
+		tempScore = Language.getPhrase(
+			'score_text',
+			'Score: {1} | Misses: {2} | Rating: {3}',
+			[songScore, songMisses, str]
+		);
+	else
+		tempScore = Language.getPhrase(
+			'score_text_instakill',
+			'Score: {1} | Rating: {2}',
+			[songScore, str]
+		);
+
+	scoreTxt.text = tempScore;
+}
+
+public inline function formatScoreNumber(value:Int):String
+{
+	var str:String = Std.string(value);
+	var negative:Bool = false;
+	if(str.length > 0 && str.charAt(0) == '-')
+	{
+		negative = true;
+		str = str.substr(1);
+	}
+
+	var result:String = '';
+	var count:Int = 0;
+	for(i in 0...str.length)
+	{
+		var c:String = str.charAt(str.length - 1 - i);
+		result = c + result;
+		count++;
+		if(count == 3 && i < str.length - 1)
 		{
-			if (bads > 0 || shits > 0) ratingFC = 'FC';
-			else if (goods > 0) ratingFC = 'GFC';
-			else if (sicks > 0) ratingFC = 'SFC';
-		}
-		else {
-			if (songMisses < 10) ratingFC = 'SDCB';
-			else ratingFC = 'Clear';
+			result = ',' + result;
+			count = 0;
 		}
 	}
+
+	return negative ? '-' + result : result;
+}
 
 	public function doScoreBop():Void {
 		if(!ClientPrefs.data.scoreZoom)
@@ -1304,6 +1379,7 @@ public function clearNotesBefore(time:Float)
 	private function startGameRenderer():Void
 	{
 		if(renderActive) return;
+		renderGameMode = true;
 		var ffmpegPath:String = getRenderFFmpegPath();
 		if(ffmpegPath == null)
 		{
@@ -1317,6 +1393,7 @@ public function clearNotesBefore(time:Float)
 		var safeSong:String = StringTools.replace(StringTools.replace(SONG.song, ' ', '_'), '/', '_');
 		renderOutputPath = renderOutputFolder + '/' + safeSong + '_' + Std.string(Date.now().getTime()) + '.mp4';
 
+		renderVideoRate = 1;
 		renderFrameTime = 1 / Math.max(renderFPS, 1);
 		renderFrameQueue = [];
 
@@ -1458,7 +1535,7 @@ public function clearNotesBefore(time:Float)
 	{
 		startingSong = false;
 
-		renderGameMode = ClientPrefs.data.gameRenderer;
+		renderGameMode = renderActive || ClientPrefs.data.gameRenderer;
 		if(renderGameMode)
 			set_playbackRate(1);
 		@:privateAccess
@@ -2896,6 +2973,7 @@ if(ClientPrefs.data.disableGCLag)
 				songHits++;
 				totalPlayed++;
 			}
+			updateScoreText();
 			return;
 		}
 
@@ -3340,6 +3418,16 @@ if(ClientPrefs.data.disableGCLag)
 		if(opponentVocals.length <= 0) vocals.volume = 1;
 		strumPlayAnim(true, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 		note.hitByOpponent = true;
+		
+		if(cpuControlled)
+		{
+			if(!note.isSustainNote)
+				opCombo++;
+			var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
+			var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+			songScore += daRating.score;
+			updateScoreText();
+		}
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
@@ -3840,7 +3928,12 @@ if (gainHealth) health += note.hitHealth * healthGain;
 							break;
 						}
 			}
-			fullComboFunction();
+			if (songMisses <= 0)
+				ratingFC = 'SFC';
+			else if (songMisses < 10)
+				ratingFC = 'FC';
+			else
+				ratingFC = 'SDCB';
 		}
 		setOnScripts('rating', ratingPercent);
 		setOnScripts('ratingName', ratingName);
