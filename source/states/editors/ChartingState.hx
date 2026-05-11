@@ -2091,6 +2091,41 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		return swagEvent;
 	}
 
+	function ensureSectionExists(targetSec:Int, ?templateSec:Int = -1):Void
+	{
+		if(PlayState.SONG == null || targetSec < 0) return;
+
+		var template:Dynamic = null;
+		if(templateSec >= 0 && templateSec < PlayState.SONG.notes.length)
+			template = PlayState.SONG.notes[templateSec];
+		else if(PlayState.SONG.notes.length > 0)
+			template = PlayState.SONG.notes[PlayState.SONG.notes.length - 1];
+
+		while(PlayState.SONG.notes.length <= targetSec)
+		{
+			var newSection:Dynamic = template != null ? Reflect.copy(template) : {
+				sectionNotes: [],
+				sectionBeats: 4,
+				mustHitSection: true,
+				bpm: PlayState.SONG.bpm,
+				changeBPM: false,
+				altAnim: false,
+				gfSection: false
+			};
+
+			newSection.sectionNotes = [];
+			if(template != null)
+			{
+				newSection.sectionBeats = template.sectionBeats;
+				newSection.mustHitSection = template.mustHitSection;
+				newSection.bpm = template.bpm;
+				newSection.changeBPM = template.changeBPM;
+				newSection.altAnim = template.altAnim;
+				newSection.gfSection = template.gfSection;
+			}
+			PlayState.SONG.notes.push(cast newSection);
+		}
+	}
 
 function insertNoteIntoSong(note:MetaNote):Void
 {
@@ -3141,23 +3176,40 @@ function addNoteStackingTab()
 				baseNotes.push(note);
 		}
 		if(baseNotes.length < 1) return;
+
 		var dupeAmount:Int = Std.int(stepperDuplicateAmount.value);
+		if(dupeAmount < 1) return;
+
 		var shiftAmount:Float = stepperShiftSteps.value * (15000 / Conductor.bpm);
+		var sourceSectionStart:Float = sectionStart;
+		var firstNewSection:Int = PlayState.SONG.notes.length;
 		var added:Array<MetaNote> = [];
-		for (_i in 1...dupeAmount + 1)
+
+		for (i in 0...dupeAmount)
+			ensureSectionExists(firstNewSection + i, curSec);
+
+		_cacheSections();
+
+		for (i in 0...dupeAmount)
 		{
+			var targetSec:Int = firstNewSection + i;
+			var targetSectionStart:Float = cachedSectionTimes[targetSec];
 			for (note in baseNotes)
 			{
 				var songDataCopy:Array<Dynamic> = note.songData.copy();
-				var newNote:MetaNote = createNote(songDataCopy, curSec);
-				newNote.setStrumTime(note.strumTime + (shiftAmount * _i));
-				positionNoteYOnTime(newNote, curSec);
+				var newNote:MetaNote = createNote(songDataCopy, targetSec);
+				newNote.setStrumTime(targetSectionStart + (note.strumTime - sourceSectionStart) + (shiftAmount * i));
+				positionNoteYOnTime(newNote, targetSec);
 				insertNoteIntoSong(newNote);
 				added.push(newNote);
 			}
 		}
+
 		notes.sort(PlayState.sortByTime);
-		softReloadNotes(true);
+		updateChartData();
+		_cacheSections();
+		softReloadNotes();
+		loadSection(firstNewSection);
 		if(added.length > 0) addUndoAction(ADD_NOTE, {notes: added});
 	});
 	dupeNotesButton.resize(80, 24);
@@ -3630,8 +3682,8 @@ function addNoteStackingTab()
 		#end
 
 		objY += 65;
-		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999999999, max:Float = 999999999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
-		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 999999999, 3);
+		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999, max:Float = 999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
+		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 400, 3);
 		bpmStepper.onValueChange = function()
 		{
 			var oldTimes:Array<Float> = cachedSectionTimes.copy();
@@ -3639,7 +3691,7 @@ function addNoteStackingTab()
 			adaptNotesToNewTimes(oldTimes);
 		};
 
-		scrollSpeedStepper = new PsychUINumericStepper(objX + 90, objY, 0.1, 1, 0.1, 1000, 2);
+		scrollSpeedStepper = new PsychUINumericStepper(objX + 90, objY, 0.1, 1, 0.1, 10, 2);
 		scrollSpeedStepper.onValueChange = function() PlayState.SONG.speed = scrollSpeedStepper.value;
 
 		audioOffsetStepper = new PsychUINumericStepper(objX + 180, objY, 1, 0, -500, 500, 0);
