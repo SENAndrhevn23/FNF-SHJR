@@ -5,6 +5,7 @@ import backend.StageData;
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
+import backend.FFMpeg;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
@@ -1340,190 +1341,57 @@ public inline function formatScoreNumber(value:Int):String
 		callOnScripts('onSkipDialogue', [dialogueCount]);
 	}
 
-	private function getRenderFFmpegPath():String
-	{
-		if(renderFFmpegPath != null) return renderFFmpegPath;
-		var cwd:String = Sys.getCwd();
-		var candidates:Array<String> = [
-			#if windows
-			'ffmpeg.exe',
-			#end
-			'ffmpeg',
-			#if windows
-			cwd + '/ffmpeg.exe',
-			#end
-			cwd + '/ffmpeg'
-		];
-		for (candidate in candidates)
-		{
-			try
-			{
-				if(candidate == 'ffmpeg' || candidate == 'ffmpeg.exe')
-				{
-					var proc = new Process(candidate, ['-version']);
-					proc.close();
-					renderFFmpegPath = candidate;
-					return renderFFmpegPath;
-				}
-				if(FileSystem.exists(candidate))
-				{
-					renderFFmpegPath = candidate;
-					return renderFFmpegPath;
-				}
-			}
-			catch (e:Dynamic) {}
-		}
-		return null;
-	}
-
+	
 	private function startGameRenderer():Void
 	{
-		if(renderActive) return;
-		renderGameMode = true;
-		var ffmpegPath:String = getRenderFFmpegPath();
-		if(ffmpegPath == null)
-		{
-			trace('[Game Renderer] FFmpeg was not found. Put ffmpeg/ffmpeg.exe in the Psych Engine folder or add it to PATH.');
+		if (renderActive)
 			return;
-		}
 
-		if(!FileSystem.exists(renderOutputFolder))
-			FileSystem.createDirectory(renderOutputFolder);
-
-		var safeSong:String = StringTools.replace(StringTools.replace(SONG.song, ' ', '_'), '/', '_');
-		renderOutputPath = renderOutputFolder + '/' + safeSong + '_' + Std.string(Date.now().getTime()) + '.mp4';
-
-		renderVideoRate = 1;
-		renderFrameTime = 1 / Math.max(renderFPS, 1);
-		renderFrameQueue = [];
+		renderGameMode = true;
+		renderFPS = Std.int(Math.max(1, ClientPrefs.data.videoRenderFPS));
 
 		renderPrevUpdateFramerate = FlxG.updateFramerate;
 		renderPrevDrawFramerate = FlxG.drawFramerate;
 		renderPrevFixedTimestep = FlxG.fixedTimestep;
+		prevAutoPause = FlxG.autoPause;
+
 		FlxG.fixedTimestep = true;
 		FlxG.updateFramerate = renderFPS;
 		FlxG.drawFramerate = renderFPS;
+		FlxG.autoPause = false;
 
-		var args:Array<String> = [
-			'-loglevel', 'warning', // <--- IMPORTANT: Prevents FFmpeg from hanging the game due to full stderr buffers
-			'-y',
-			'-f', 'rawvideo',
-			'-pix_fmt', 'rgba',
-			'-s', FlxG.width + 'x' + FlxG.height,
-			'-r', Std.string(renderFPS),
-			'-i', '-',
-			'-c:v', 'libx264',
-			'-preset', 'veryfast',
-			'-crf', '18',
-			'-pix_fmt', 'yuv420p',
-			'-movflags', '+faststart',
-			renderOutputPath
-		];
 		try
 		{
-			renderProcess = new Process(ffmpegPath, args);
+			if (FFMpeg.instance == null)
+				FFMpeg.instance = new FFMpeg();
+
+			FFMpeg.instance.init();
+			FFMpeg.instance.setup();
 			renderActive = true;
-			renderFrameIndex = 0;
-			renderWorker = Thread.create(renderWorkerLoop);
-			trace('[Game Renderer] Recording to ' + renderOutputPath);
+			trace('[Game Renderer] Recording with backend.FFMpeg');
 		}
-		catch(e:Dynamic)
+		catch (e:Dynamic)
 		{
-			renderProcess = null;
 			renderActive = false;
 			FlxG.fixedTimestep = renderPrevFixedTimestep;
 			FlxG.updateFramerate = renderPrevUpdateFramerate;
 			FlxG.drawFramerate = renderPrevDrawFramerate;
+			FlxG.autoPause = prevAutoPause;
 			trace('[Game Renderer] Failed to start FFmpeg: ' + Std.string(e));
 		}
 	}
 
-	private function renderWorkerLoop():Void
-	{
-		while(true)
-		{
-			var bytes:Bytes = cast Thread.readMessage(true);
-			if(bytes == null) {
-				// Stop signal received - Gracefully shutdown FFmpeg
-				if (renderProcess != null) {
-					try {
-						if (renderProcess.stdin != null) {
-							renderProcess.stdin.flush();
-							renderProcess.stdin.close(); // Signal EOF so FFmpeg finalizes the file (the moov atom)
-						}
-					} catch (e:Dynamic) {}
-
-					try {
-						renderProcess.exitCode(true); // Wait for FFmpeg to finish encoding the buffered frames
-						renderProcess.close();
-					} catch (e:Dynamic) {}
-					
-					renderProcess = null;
-					trace('[Game Renderer] Successfully saved to ' + renderOutputPath);
-				}
-				break;
-			}
-			
-			try
-			{
-				if(renderProcess != null && renderProcess.stdin != null)
-					renderProcess.stdin.writeBytes(bytes, 0, bytes.length);
-			}
-			catch(e:Dynamic)
-			{
-				trace('[Game Renderer] Worker write failed: ' + Std.string(e));
-				break;
-			}
-			
-			if(renderFrameQueue.length > 0)
-				renderFrameQueue.shift();
-		}
-	}
-
-	private function stopGameRenderer():Void
-	{
-		if(!renderActive && renderProcess == null)
-			return;
-
-		renderActive = false;
-		FlxG.fixedTimestep = renderPrevFixedTimestep;
-		FlxG.updateFramerate = renderPrevUpdateFramerate;
-		FlxG.drawFramerate = renderPrevDrawFramerate;
-
-		trace('[Game Renderer] Finalizing video, please wait... (' + renderOutputPath + ')');
-
-		try
-		{
-			if(renderWorker != null)
-				renderWorker.sendMessage(null); // Send shutdown signal to the worker
-		}
-		catch(e:Dynamic) {}
-	}
-
 	private function captureRenderFrame():Bool
 	{
-		if(!renderActive || renderProcess == null || FlxG.stage == null || FlxG.stage.application == null)
+		if (!renderActive || FFMpeg.instance == null)
 			return false;
 
-		if(renderFrameQueue.length >= renderMaxQueue)
-			return false;
-			
 		try
 		{
-			var rect = new Rectangle(0, 0, FlxG.width, FlxG.height);
-			var image = FlxG.stage.application.window.readPixels(rect);
-			if(image == null || image.data == null) return false;
-
-			var bytes:Bytes = image.data.toBytes();
-			if(bytes == null || bytes.length <= 0) return false;
-
-			renderFrameQueue.push(bytes);
-			renderFrameIndex++;
-			if(renderWorker != null)
-				renderWorker.sendMessage(bytes);
+			FFMpeg.instance.pipeFrame();
 			return true;
 		}
-		catch(e:Dynamic)
+		catch (e:Dynamic)
 		{
 			trace('[Game Renderer] Frame capture failed: ' + Std.string(e));
 			stopGameRenderer();
@@ -1531,12 +1399,33 @@ public inline function formatScoreNumber(value:Int):String
 		}
 	}
 
-	function startSong():Void
+	private function stopGameRenderer():Void
+	{
+		if (!renderActive && FFMpeg.instance == null)
+			return;
+
+		renderActive = false;
+		FlxG.fixedTimestep = renderPrevFixedTimestep;
+		FlxG.updateFramerate = renderPrevUpdateFramerate;
+		FlxG.drawFramerate = renderPrevDrawFramerate;
+		FlxG.autoPause = prevAutoPause;
+
+		try
+		{
+			if (FFMpeg.instance != null)
+				FFMpeg.instance.destroy();
+		}
+		catch (e:Dynamic) {}
+
+		trace('[Game Renderer] Render session closed.');
+	}
+
+function startSong():Void
 	{
 		startingSong = false;
 
-		renderGameMode = renderActive || ClientPrefs.data.gameRenderer;
-		if(renderGameMode)
+		renderGameMode = ClientPrefs.data.gameRenderer;
+		if (renderGameMode)
 			set_playbackRate(1);
 		@:privateAccess
 		FlxG.sound.playMusic(inst._sound, 1, false);
@@ -2044,22 +1933,14 @@ public inline function formatScoreNumber(value:Int):String
 	override public function draw()
 	{
 		super.draw();
-		if(renderActive)
-		{
-			// Block main thread if FFmpeg worker is falling behind
-			while(renderFrameQueue.length >= renderMaxQueue)
-			{
-				Sys.sleep(0.005);
-			}
+		if (renderActive)
 			captureRenderFrame();
-		}
 	}
 
 	override public function update(elapsed:Float)
 	{
-		if(renderActive) {
+		if (renderActive && renderFPS > 0)
 			elapsed = 1.0 / renderFPS; // FORCE CONSTANT TIMESTEP
-		}
 
 		if(!inCutscene && !paused && !freezeCamera) {
 			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
@@ -2836,7 +2717,7 @@ if(ClientPrefs.data.disableGCLag)
 		inCutscene = false;
 		updateTime = false;
 
-		if(renderActive)
+		if (renderActive)
 			stopGameRenderer();
 
 		deathCounter = 0;
@@ -3615,6 +3496,8 @@ if (gainHealth) health += note.hitHealth * healthGain;
 
 		NoteSplash.configs.clear();
 		FlxG.autoPause = prevAutoPause;
+		if (renderActive || FFMpeg.instance != null)
+			stopGameRenderer();
 		instance = null;
 		super.destroy();
 	}
