@@ -2,14 +2,12 @@
 package backend;
 
 import flixel.FlxG;
+import haxe.io.Bytes;
 import lime.graphics.Image;
 import lime.math.Rectangle;
 import lime.ui.Window;
 import sys.FileSystem;
 import sys.io.Process;
-import haxe.io.Bytes;
-
-import options.GameRendererSettingsSubState;
 import states.PlayState;
 
 class FFMpeg
@@ -26,7 +24,6 @@ class FFMpeg
 	public var target:String = "render_video";
 	public var fileName:String = "";
 	public var fileExts:String = ".mp4";
-	public var wentPreview:String;
 	public var process:Process;
 
 	public function new() {}
@@ -57,81 +54,52 @@ class FFMpeg
 
 		if (!FileSystem.exists(executable))
 		{
-			if (testMode)
-			{
-				throw "not found ffmpeg";
-			}
-			else
-			{
-				trace('"' + executable + '" not found, turning on preview mode...');
-				ClientPrefs.data.previewRender = true;
-				FlxG.sound.play(Paths.sound('cancelMenu'), ClientPrefs.data.sfxVolume);
-				wentPreview = executable + " was not found";
-				return;
-			}
+			trace('"' + executable + '" not found.');
+			return;
 		}
 
-		var curCodec:String = ClientPrefs.data.codec;
-		var isGPU:Bool = CoolUtil.searchFromStrings(curCodec, ['QSV', 'NVENC', 'AMF', 'VAAPI']);
+		var fps:Int = Std.int(ClientPrefs.data.videoRenderFPS);
+		if (fps < 1) fps = 60;
 
-		if (CoolUtil.searchFromString(curCodec, 'VP'))
-			fileExts = ".webm";
+		var quality:Int = Std.int(ClientPrefs.data.videoRenderQuality);
+		if (quality < 1) quality = 1;
+		if (quality > 10) quality = 10;
 
 		if (!testMode)
 		{
 			fileName = target + '/' + Paths.formatToSongPath(PlayState.SONG.song);
 			if (FileSystem.exists(fileName + fileExts))
 			{
-				var millis = CoolUtil.fillNumber(Std.int(haxe.Timer.stamp() * 1000.0) % 1000, 3, 48);
+				var millis = Std.int(haxe.Timer.stamp() * 1000.0) % 1000;
 				fileName += "-" + DateTools.format(Date.now(), "%Y-%m-%d_%H-%M-%S-") + millis;
 			}
 		}
 		else
 		{
-			fileName = target + '/test-codec-' + curCodec;
+			fileName = target + '/test-render';
 		}
+
+		var crf:Int = 51 - (quality * 4);
+		if (crf < 0) crf = 0;
+		if (crf > 51) crf = 51;
 
 		var arguments:Array<String> = [
-			'-v', 'quiet', '-y',
-			'-f', 'rawvideo', '-pix_fmt', 'rgba',
+			'-y',
+			'-f', 'rawvideo',
+			'-pix_fmt', 'rgba',
 			'-s', x + 'x' + y,
-			'-r', Std.string(ClientPrefs.data.targetFPS),
+			'-r', Std.string(fps),
 			'-i', '-',
-			'-c:v', GameRendererSettingsSubState.codecMap[curCodec]
+			'-c:v', 'libx264',
+			'-crf', Std.string(crf),
+			fileName + fileExts
 		];
 
-		switch (ClientPrefs.data.encodeMode)
-		{
-			case "CRF/CQP":
-				arguments.push('-b:v');
-				arguments.push('0');
-				arguments.push(isGPU ? '-qp' : '-crf');
-				arguments.push(Std.string(ClientPrefs.data.constantQuality));
-
-			case 'VBR', 'CBR':
-				arguments.push('-b:v');
-				arguments.push(Std.string(ClientPrefs.data.bitrate * 1000000));
-				if (ClientPrefs.data.encodeMode == 'CBR')
-				{
-					arguments.push('-maxrate');
-					arguments.push(Std.string(ClientPrefs.data.bitrate * 1000000));
-					arguments.push('-minrate');
-					arguments.push(Std.string(ClientPrefs.data.bitrate * 1000000));
-				}
-		}
-
-		arguments.push(fileName + fileExts);
-
-		if (!ClientPrefs.data.previewRender && !testMode)
-			trace("running " + arguments.join(" "));
-
+		trace("running ffmpeg " + arguments.join(" "));
 		process = new Process(executable, arguments);
 
 		buffer = new Rectangle(0, 0, x, y);
 		FlxG.autoPause = false;
-
-		if (!testMode)
-			FlxG.sound.play(Paths.sound('confirmMenu'), ClientPrefs.data.sfxVolume);
 	}
 
 	public function pipeFrame():Void
