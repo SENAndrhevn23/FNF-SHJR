@@ -355,6 +355,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(chartEditorSave.data.backupLimit != null) backupLimit = chartEditorSave.data.backupLimit;
 		if(chartEditorSave.data.vortex != null) vortexEnabled = chartEditorSave.data.vortex;
 
+		if(chartEditorSave.data.noteAlpha != null) noteAlpha = chartEditorSave.data.noteAlpha;
+		if(chartEditorSave.data.showNotes != null) showNotes = chartEditorSave.data.showNotes;
+
 		if(chartEditorSave.data.customBgColor == null) chartEditorSave.data.customBgColor = '303030';
 		if(chartEditorSave.data.customGridColors == null || chartEditorSave.data.customGridColors.length < 2)
 			chartEditorSave.data.customGridColors = ['DFDFDF', 'BFBFBF'];
@@ -414,7 +417,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
 			note.scrollFactor.set();
 			note.playAnim('static');
-			note.alpha = 0.4;
+			note.alpha = getNoteDisplayAlpha(note.strumTime, true);
 			note.updateHitbox();
 			if(note.width > note.height)
 				note.setGraphicSize(GRID_SIZE);
@@ -492,7 +495,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		add(infoBox);
 		syncInfoTextLayout();
 
-		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Note Spamming', 'Section', 'Song']);
+		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Density', 'Data', 'Events', 'Note', 'Note Spamming', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
 		mainBox.scrollFactor.set();
 		mainBox.cameras = [camUI];
@@ -540,6 +543,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		// TABS
 		////// for main box
 		addChartingTab();
+		addDensityTab();
 		addDataTab();
 		addEventsTab();
 		addNoteTab();
@@ -1533,7 +1537,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			{
 				if(note == null || note.isEvent) continue;
 
-				note.alpha = (note.strumTime >= Conductor.songPosition) ? 1 : 0.6;
+				note.alpha = getNoteDisplayAlpha(note.strumTime);
 				if(Conductor.songPosition > note.strumTime && lastTime <= note.strumTime)
 				{
 					if(canPlayHitSound)
@@ -1603,6 +1607,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					note.animation.update(elapsed); //let selected notes be animated for better visibility
 				}
 				note.colorTransform.redMultiplier = note.colorTransform.greenMultiplier = note.colorTransform.blueMultiplier = sineValue;
+				note.alpha = getNoteDisplayAlpha(note.strumTime);
 			}
 		}
 		else noteSelectionSine = 0;
@@ -1999,7 +2004,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		for (note in strumLineNotes)
 		{
-			note.alpha = doPlay ? 1 : 0.4;
+			note.alpha = showNotes ? noteAlpha * (doPlay ? 1 : 0.4) : 0;
 			if(!doPlay)
 			{
 				note.playAnim('static');
@@ -2062,6 +2067,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		swagNote.active = false;
 		positionNoteXByData(swagNote);
 		positionNoteYOnTime(swagNote, secNum);
+		applyMetaNoteVisibility(swagNote);
 		return swagNote;
 	}
 
@@ -2081,6 +2087,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			secNum++;
 		}
 		positionNoteYOnTime(swagEvent, secNum);
+		applyMetaNoteVisibility(swagEvent);
 		return swagEvent;
 	}
 
@@ -2333,7 +2340,7 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 			{
 				if(!firstNote) sectionFirstNoteID = num;
 				curRenderedNotes.add(note);
-				note.alpha = (note.strumTime >= Conductor.songPosition) ? 1 : 0.6;
+				applyMetaNoteVisibility(note);
 				if(note.hasSustain) note.updateSustainToZoom(cachedSectionCrochets[curSec] / 4, curZoom);
 			}
 		}
@@ -2346,8 +2353,8 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 				{
 					if(!firstEvent) sectionFirstEventID = num;
 					curRenderedNotes.add(event);
-					event.alpha = (event.strumTime >= Conductor.songPosition) ? 1 : 0.6;
-					event.eventText.visible = true;
+					applyMetaNoteVisibility(event);
+						if(event.eventText != null) event.eventText.visible = showNotes;
 				}
 			}
 		}
@@ -2369,7 +2376,7 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 				for(note in notes.filter(otherSecFilter))
 				{
 					behindRenderedNotes.add(note);
-					note.alpha = 0.4;
+					applyMetaNoteVisibility(note, true);
 					if(note.hasSustain) note.updateSustainToZoom(cachedSectionCrochets[curSec] / 4, curZoom);
 				}
 
@@ -2378,8 +2385,8 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 					for(event in events.filter(otherSecFilter))
 					{
 						behindRenderedNotes.add(event);
-						event.alpha = 0.4;
-						event.eventText.visible = false;
+						applyMetaNoteVisibility(event, true);
+						if(event.eventText != null) event.eventText.visible = false;
 					}
 				}
 			}
@@ -2489,6 +2496,10 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 	var playerMuteCheckBox:PsychUICheckBox;
 	var opponentVolumeStepper:PsychUINumericStepper;
 	var opponentMuteCheckBox:PsychUICheckBox;
+	var noteAlpha:Float = 1;
+	var showNotes:Bool = true;
+	var noteAlphaStepper:PsychUINumericStepper;
+	var showNotesCheckbox:PsychUICheckBox;
 	function addChartingTab()
 	{
 		var tab_group = mainBox.getTab('Charting').menu;
@@ -2549,6 +2560,96 @@ function addSpamNotesAt(strumTime:Float, noteData:Int, ?typeSelected:String = nu
 		tab_group.add(opponentVolumeStepper);
 		tab_group.add(opponentMuteCheckBox);
 	}
+
+
+function addDensityTab()
+{
+	var tab_group = mainBox.getTab('Density').menu;
+	var objX = 10;
+	var objY = 25;
+
+	var infoTxt:FlxText = new FlxText(objX, objY - 20, 280, 'Controls note visibility and transparency.');
+	infoTxt.alignment = CENTER;
+
+	noteAlphaStepper = new PsychUINumericStepper(objX, objY, 0.1, noteAlpha, 0, 1, 1);
+	noteAlphaStepper.onValueChange = function()
+	{
+		noteAlpha = noteAlphaStepper.value;
+		chartEditorSave.data.noteAlpha = noteAlpha;
+		refreshNoteVisibility();
+	};
+
+	showNotesCheckbox = new PsychUICheckBox(objX, objY + 45, 'Show Notes', 100, function()
+	{
+		showNotes = showNotesCheckbox.checked;
+		chartEditorSave.data.showNotes = showNotes;
+		refreshNoteVisibility();
+	});
+	showNotesCheckbox.checked = showNotes;
+
+	var resetButton:PsychUIButton = new PsychUIButton(objX, objY + 80, 'Reset', function()
+	{
+		noteAlpha = 1;
+		showNotes = true;
+		noteAlphaStepper.value = noteAlpha;
+		showNotesCheckbox.checked = true;
+		chartEditorSave.data.noteAlpha = noteAlpha;
+		chartEditorSave.data.showNotes = showNotes;
+		refreshNoteVisibility();
+	});
+
+	tab_group.add(infoTxt);
+	tab_group.add(new FlxText(noteAlphaStepper.x, noteAlphaStepper.y - 15, 200, 'Note Transparency:'));
+	tab_group.add(noteAlphaStepper);
+	tab_group.add(showNotesCheckbox);
+	tab_group.add(resetButton);
+}
+
+inline function getNoteDisplayAlpha(strumTime:Float, ?isBehind:Bool = false):Float
+{
+	if(!showNotes) return 0;
+	return noteAlpha * (isBehind ? 0.4 : ((strumTime >= Conductor.songPosition) ? 1 : 0.6));
+}
+
+inline function applyMetaNoteVisibility(note:MetaNote, ?isBehind:Bool = false):Void
+{
+	if(note == null) return;
+	note.visible = showNotes;
+	note.active = showNotes;
+	note.alpha = getNoteDisplayAlpha(note.strumTime, isBehind);
+	if(note.isEvent)
+	{
+		var ev:EventMetaNote = cast note;
+		if(ev.eventText != null) ev.eventText.visible = showNotes;
+	}
+}
+
+function refreshNoteVisibility():Void
+{
+	chartEditorSave.data.noteAlpha = noteAlpha;
+	chartEditorSave.data.showNotes = showNotes;
+
+	for(note in behindRenderedNotes)
+	{
+		if(note == null) continue;
+		applyMetaNoteVisibility(note, true);
+	}
+	for(note in curRenderedNotes)
+	{
+		if(note == null) continue;
+		applyMetaNoteVisibility(note, false);
+	}
+	for(note in movingNotes)
+	{
+		if(note == null) continue;
+		applyMetaNoteVisibility(note, false);
+	}
+	for(note in selectedNotes)
+	{
+		if(note == null) continue;
+		applyMetaNoteVisibility(note, false);
+	}
+}
 
 	var gameOverCharDropDown:PsychUIDropDownMenu;
 	var gameOverSndInputText:PsychUIInputText;
