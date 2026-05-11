@@ -8,23 +8,23 @@ import lime.math.Rectangle;
 import lime.ui.Window;
 import sys.FileSystem;
 import sys.io.Process;
+
 import states.PlayState;
 
 class FFMpeg
 {
 	public static var instance:FFMpeg;
 
-	var x:Int;
-	var y:Int;
-	var image:Image;
-	var bytes:Bytes;
-	var window:Window;
-	var buffer:Rectangle;
-
 	public var target:String = "render_video";
 	public var fileName:String = "";
 	public var fileExts:String = ".mp4";
-	public var process:Process;
+
+	var window:Window;
+	var buffer:Rectangle;
+	var image:Image;
+	var bytes:Bytes;
+	var process:Process;
+	var outputPath:String;
 
 	public function new() {}
 
@@ -44,8 +44,7 @@ class FFMpeg
 		}
 
 		window = FlxG.stage.application.window;
-		x = window.width;
-		y = window.height;
+		buffer = new Rectangle(0, 0, window.width, window.height);
 	}
 
 	public function setup(testMode:Bool = false):Void
@@ -53,9 +52,17 @@ class FFMpeg
 		var executable:String = #if windows "ffmpeg.exe" #else "ffmpeg" #end;
 
 		if (!FileSystem.exists(executable))
+			throw '"' + executable + '" not found';
+
+		var safeSong:String = Paths.formatToSongPath(PlayState.SONG.song);
+		if (safeSong == null || safeSong.length < 1)
+			safeSong = "song";
+
+		outputPath = target + '/' + safeSong;
+		if (!testMode && FileSystem.exists(outputPath + fileExts))
 		{
-			trace('"' + executable + '" not found.');
-			return;
+			var millis = Std.int(haxe.Timer.stamp() * 1000.0) % 1000;
+			outputPath += "-" + DateTools.format(Date.now(), "%Y-%m-%d_%H-%M-%S-") + millis;
 		}
 
 		var fps:Int = Std.int(ClientPrefs.data.videoRenderFPS);
@@ -65,40 +72,27 @@ class FFMpeg
 		if (quality < 1) quality = 1;
 		if (quality > 10) quality = 10;
 
-		if (!testMode)
-		{
-			fileName = target + '/' + Paths.formatToSongPath(PlayState.SONG.song);
-			if (FileSystem.exists(fileName + fileExts))
-			{
-				var millis = Std.int(haxe.Timer.stamp() * 1000.0) % 1000;
-				fileName += "-" + DateTools.format(Date.now(), "%Y-%m-%d_%H-%M-%S-") + millis;
-			}
-		}
-		else
-		{
-			fileName = target + '/test-render';
-		}
-
-		var crf:Int = 51 - (quality * 4);
+		var crf:Int = 40 - (quality * 3);
 		if (crf < 0) crf = 0;
 		if (crf > 51) crf = 51;
 
-		var arguments:Array<String> = [
+		var args:Array<String> = [
 			'-y',
+			'-loglevel', 'warning',
 			'-f', 'rawvideo',
 			'-pix_fmt', 'rgba',
-			'-s', x + 'x' + y,
+			'-s', window.width + 'x' + window.height,
 			'-r', Std.string(fps),
 			'-i', '-',
 			'-c:v', 'libx264',
+			'-preset', 'veryfast',
 			'-crf', Std.string(crf),
-			fileName + fileExts
+			'-pix_fmt', 'yuv420p',
+			'-movflags', '+faststart',
+			outputPath + fileExts
 		];
 
-		trace("running ffmpeg " + arguments.join(" "));
-		process = new Process(executable, arguments);
-
-		buffer = new Rectangle(0, 0, x, y);
+		process = new Process(executable, args);
 		FlxG.autoPause = false;
 	}
 
@@ -108,7 +102,13 @@ class FFMpeg
 			return;
 
 		image = window.readPixels();
+		if (image == null)
+			return;
+
 		bytes = image.getPixels(buffer);
+		if (bytes == null || bytes.length <= 0)
+			return;
+
 		process.stdin.write(bytes);
 	}
 
