@@ -1,18 +1,18 @@
 package options;
 
-import backend.Alphabet;
 import backend.ClientPrefs;
 import backend.DiscordClient;
 import backend.Language;
-import backend.LoadingState;
-import backend.MusicBeatState;
 import backend.Paths;
 import backend.StageData;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+import objects.Alphabet;
+import states.LoadingState;
 import states.MainMenuState;
+import states.MusicBeatState;
 import states.PlayState;
 
 class OptionsState extends MusicBeatState
@@ -33,7 +33,7 @@ class OptionsState extends MusicBeatState
 
 	private var grpOptions:FlxTypedGroup<Alphabet>;
 	private static var curSelected:Int = 0;
-	public static var menuBG:FlxSprite = null;
+	public static var menuBG:FlxSprite;
 	public static var onPlayState:Bool = false;
 
 	var selectorLeft:Alphabet;
@@ -41,7 +41,7 @@ class OptionsState extends MusicBeatState
 
 	function openSelectedSubstate(label:String)
 	{
-		switch(label)
+		switch (label)
 		{
 			case 'Note Colors':
 				openSubState(new NotesColorSubState());
@@ -78,12 +78,12 @@ class OptionsState extends MusicBeatState
 		DiscordClient.changePresence("Options Menu", null);
 		#end
 
-		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.antialiasing = ClientPrefs.data.antialiasing;
-		bg.color = 0xFFea71fd;
-		bg.updateHitbox();
-		bg.screenCenter();
-		add(bg);
+		menuBG = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		menuBG.antialiasing = ClientPrefs.data.antialiasing;
+		menuBG.color = 0xFFea71fd;
+		menuBG.updateHitbox();
+		menuBG.screenCenter();
+		add(menuBG);
 
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
@@ -93,11 +93,11 @@ class OptionsState extends MusicBeatState
 			var optionText:Alphabet = new Alphabet(
 				0,
 				0,
-				Language.getPhrase('options_${menuOptions[i]}', menuOptions[i]),
+				Language.getPhrase('options_' + menuOptions[i], menuOptions[i]),
 				true
 			);
 
-			optionText.scale.set(0.85, 0.85);
+			optionText.scale.set(0.80, 0.80);
 			optionText.updateHitbox();
 
 			optionText.screenCenter();
@@ -110,12 +110,12 @@ class OptionsState extends MusicBeatState
 		}
 
 		selectorLeft = new Alphabet(0, 0, '>', true);
-		selectorLeft.scale.set(0.8, 0.8);
+		selectorLeft.scale.set(0.75, 0.75);
 		selectorLeft.updateHitbox();
 		add(selectorLeft);
 
 		selectorRight = new Alphabet(0, 0, '<', true);
-		selectorRight.scale.set(0.8, 0.8);
+		selectorRight.scale.set(0.75, 0.75);
 		selectorRight.updateHitbox();
 		add(selectorRight);
 
@@ -171,17 +171,17 @@ class OptionsState extends MusicBeatState
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, menuOptions.length - 1);
 
-		var index:Int = 0;
+		var idx:Int = 0;
 
 		for (item in grpOptions.members)
 		{
 			if (item == null)
 			{
-				index++;
+				idx++;
 				continue;
 			}
 
-			item.targetY = index - curSelected;
+			item.targetY = idx - curSelected;
 			item.alpha = 0.6;
 
 			if (item.targetY == 0)
@@ -195,7 +195,7 @@ class OptionsState extends MusicBeatState
 				selectorRight.y = item.y;
 			}
 
-			index++;
+			idx++;
 		}
 
 		FlxG.sound.play(Paths.sound('scrollMenu'));
@@ -203,7 +203,6 @@ class OptionsState extends MusicBeatState
 
 	override function destroy()
 	{
-		ClientPrefs.loadPrefs();
 		super.destroy();
 	}
 }
