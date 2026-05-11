@@ -21,28 +21,26 @@ jobs:
   create-tag:
     name: Create Git Tag
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # IMPORTANT for tags
+          fetch-depth: 0
 
-      - name: Create tag
+      - name: Create and Push Tag
         run: |
           git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
           git fetch --tags
-
-          if git rev-parse "${{ github.event.inputs.tag_name }}" >/dev/null 2>&1; then
+          if git rev-parse "${{ inputs.tag_name }}" >/dev/null 2>&1; then
             echo "Tag already exists"
           else
-            git tag "${{ github.event.inputs.tag_name }}"
-            git push origin "${{ github.event.inputs.tag_name }}"
+            git tag "${{ inputs.tag_name }}"
+            git push origin "${{ inputs.tag_name }}"
           fi
 
 # -----------------------------
-# BUILD (Reusable Workflow)
+# BUILD (Referencing main.yml)
 # -----------------------------
   build:
     name: Build Game
@@ -50,7 +48,7 @@ jobs:
     uses: ./.github/workflows/main.yml
     secrets: inherit
     with:
-      tag_name: ${{ github.event.inputs.tag_name }}
+      tag_name: ${{ inputs.tag_name }}
 
 # -----------------------------
 # RELEASE
@@ -59,18 +57,17 @@ jobs:
     name: Publish Release
     needs: build
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4
 
       - name: Download Linux build
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: linuxBuild
           path: release/linux
 
       - name: Download Windows build
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: windowsBuild
           path: release/windows
@@ -88,8 +85,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name }}
-          name: ${{ github.event.inputs.tag_name }}
+          tag_name: ${{ inputs.tag_name }}
+          name: ${{ inputs.tag_name }}
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
