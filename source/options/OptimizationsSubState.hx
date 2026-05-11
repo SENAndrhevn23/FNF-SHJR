@@ -68,15 +68,6 @@ class OptimizationsSubState extends BaseOptionsMenu
         addOption(option);
 
         // -------------------------
-        // Game Renderer (FFmpeg)
-        // -------------------------
-        option = new Option('Game Renderer',
-            "Records gameplay using FFmpeg.\nRequires FFmpeg installed on system PATH.",
-            'gameRenderer',
-            BOOL);
-        addOption(option);
-
-        // -------------------------
         // Change Combo Limit Option
         // -------------------------
         limitComboOption = new Option('Change Combo Limit',
