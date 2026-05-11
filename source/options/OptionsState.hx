@@ -2,6 +2,7 @@ package options;
 
 import states.MainMenuState;
 import backend.StageData;
+import flixel.group.FlxGroup.FlxTypedGroup;
 
 class OptionsState extends MusicBeatState
 {
@@ -11,16 +12,22 @@ class OptionsState extends MusicBeatState
 		'Adjust Delay and Combo',
 		'Graphics',
 		'Optimizations',
+		'Video Rendering',
 		'Visuals',
 		'Gameplay'
 		#if TRANSLATIONS_ALLOWED , 'Language' #end
 	];
+
 	private var grpOptions:FlxTypedGroup<Alphabet>;
 	private static var curSelected:Int = 0;
 	public static var menuBG:FlxSprite;
 	public static var onPlayState:Bool = false;
 
-	function openSelectedSubstate(label:String) {
+	var selectorLeft:Alphabet;
+	var selectorRight:Alphabet;
+
+	function openSelectedSubstate(label:String)
+	{
 		switch(label)
 		{
 			case 'Note Colors':
@@ -34,6 +41,9 @@ class OptionsState extends MusicBeatState
 
 			case 'Optimizations':
 				openSubState(new options.OptimizationsSubState());
+
+			case 'Video Rendering':
+				openSubState(new options.VideoRenderingSubState());
 
 			case 'Visuals':
 				openSubState(new options.VisualsSettingsSubState());
@@ -49,9 +59,6 @@ class OptionsState extends MusicBeatState
 		}
 	}
 
-	var selectorLeft:Alphabet;
-	var selectorRight:Alphabet;
-
 	override function create()
 	{
 		#if DISCORD_ALLOWED
@@ -62,18 +69,28 @@ class OptionsState extends MusicBeatState
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		bg.color = 0xFFea71fd;
 		bg.updateHitbox();
-
 		bg.screenCenter();
 		add(bg);
 
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
-		for (num => option in options)
+		for (i in 0...options.length)
 		{
-			var optionText:Alphabet = new Alphabet(0, 0, Language.getPhrase('options_$option', option), true);
+			var optionText:Alphabet = new Alphabet(
+				0,
+				0,
+				Language.getPhrase('options_${options[i]}', options[i]),
+				true
+			);
+
 			optionText.screenCenter();
-			optionText.y += (92 * (num - (options.length / 2))) + 45;
+			optionText.y += (100 * (i - (options.length / 2))) + 50;
+
+			// Required for scrolling
+			optionText.isMenuItem = true;
+			optionText.targetY = i - curSelected;
+
 			grpOptions.add(optionText);
 		}
 
@@ -84,6 +101,7 @@ class OptionsState extends MusicBeatState
 		add(selectorRight);
 
 		changeSelection();
+
 		ClientPrefs.saveSettings();
 
 		super.create();
@@ -92,6 +110,7 @@ class OptionsState extends MusicBeatState
 	override function closeSubState()
 	{
 		super.closeSubState();
+
 		ClientPrefs.saveSettings();
 
 		#if DISCORD_ALLOWED
@@ -120,24 +139,33 @@ class OptionsState extends MusicBeatState
 				FlxG.sound.music.volume = 0;
 			}
 			else
+			{
 				MusicBeatState.switchState(new MainMenuState());
+			}
 		}
 		else if (controls.ACCEPT)
+		{
 			openSelectedSubstate(options[curSelected]);
+		}
 	}
-	
+
 	function changeSelection(change:Int = 0)
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
 
-		for (num => item in grpOptions.members)
+		var bullShit:Int = 0;
+
+		for (item in grpOptions.members)
 		{
-			item.targetY = num - curSelected;
+			item.targetY = bullShit - curSelected;
+			bullShit++;
+
 			item.alpha = 0.6;
 
 			if (item.targetY == 0)
 			{
 				item.alpha = 1;
+
 				selectorLeft.x = item.x - 63;
 				selectorLeft.y = item.y;
 
