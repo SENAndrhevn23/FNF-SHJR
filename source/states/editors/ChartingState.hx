@@ -3630,8 +3630,8 @@ function addNoteStackingTab()
 		#end
 
 		objY += 65;
-		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999, max:Float = 999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
-		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 400, 3);
+		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999999999, max:Float = 999999999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
+		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 999999999, 3);
 		bpmStepper.onValueChange = function()
 		{
 			var oldTimes:Array<Float> = cachedSectionTimes.copy();
@@ -3639,7 +3639,7 @@ function addNoteStackingTab()
 			adaptNotesToNewTimes(oldTimes);
 		};
 
-		scrollSpeedStepper = new PsychUINumericStepper(objX + 90, objY, 0.1, 1, 0.1, 10, 2);
+		scrollSpeedStepper = new PsychUINumericStepper(objX + 90, objY, 0.1, 1, 0.1, 1000, 2);
 		scrollSpeedStepper.onValueChange = function() PlayState.SONG.speed = scrollSpeedStepper.value;
 
 		audioOffsetStepper = new PsychUINumericStepper(objX + 180, objY, 1, 0, -500, 500, 0);
