@@ -10,6 +10,11 @@ on:
         description: "Release version (example: v1.0.0)"
         required: true
         type: string
+      release_description:
+        description: "Release description"
+        required: false
+        default: "New release for SHJR."
+        type: string
 
 permissions:
   contents: write
@@ -91,6 +96,7 @@ jobs:
         with:
           tag_name: ${{ inputs.tag_name }}
           name: ${{ inputs.tag_name }}
+          body: ${{ inputs.release_description }}
           files: |
             SHJR-linux.zip
             SHJR-windows.zip
