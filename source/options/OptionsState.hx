@@ -1,12 +1,23 @@
 package options;
 
-import states.MainMenuState;
+import backend.Alphabet;
+import backend.ClientPrefs;
+import backend.DiscordClient;
+import backend.Language;
+import backend.LoadingState;
+import backend.MusicBeatState;
+import backend.Paths;
 import backend.StageData;
+import flixel.FlxG;
+import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.math.FlxMath;
+import states.MainMenuState;
+import states.PlayState;
 
 class OptionsState extends MusicBeatState
 {
-	var options:Array<String> = [
+	var menuOptions:Array<String> = [
 		'Note Colors',
 		'Controls',
 		'Adjust Delay and Combo',
@@ -15,12 +26,14 @@ class OptionsState extends MusicBeatState
 		'Video Rendering',
 		'Visuals',
 		'Gameplay'
-		#if TRANSLATIONS_ALLOWED , 'Language' #end
+		#if TRANSLATIONS_ALLOWED
+		, 'Language'
+		#end
 	];
 
 	private var grpOptions:FlxTypedGroup<Alphabet>;
 	private static var curSelected:Int = 0;
-	public static var menuBG:FlxSprite;
+	public static var menuBG:FlxSprite = null;
 	public static var onPlayState:Bool = false;
 
 	var selectorLeft:Alphabet;
@@ -31,31 +44,31 @@ class OptionsState extends MusicBeatState
 		switch(label)
 		{
 			case 'Note Colors':
-				openSubState(new options.NotesColorSubState());
+				openSubState(new NotesColorSubState());
 
 			case 'Controls':
-				openSubState(new options.ControlsSubState());
+				openSubState(new ControlsSubState());
 
 			case 'Graphics':
-				openSubState(new options.GraphicsSettingsSubState());
+				openSubState(new GraphicsSettingsSubState());
 
 			case 'Optimizations':
-				openSubState(new options.OptimizationsSubState());
+				openSubState(new OptimizationsSubState());
 
 			case 'Video Rendering':
-				openSubState(new options.VideoRenderingSubState());
+				openSubState(new VideoRenderingSubState());
 
 			case 'Visuals':
-				openSubState(new options.VisualsSettingsSubState());
+				openSubState(new VisualsSettingsSubState());
 
 			case 'Gameplay':
-				openSubState(new options.GameplaySettingsSubState());
+				openSubState(new GameplaySettingsSubState());
 
 			case 'Adjust Delay and Combo':
-				MusicBeatState.switchState(new options.NoteOffsetState());
+				MusicBeatState.switchState(new NoteOffsetState());
 
 			case 'Language':
-				openSubState(new options.LanguageSubState());
+				openSubState(new LanguageSubState());
 		}
 	}
 
@@ -75,19 +88,21 @@ class OptionsState extends MusicBeatState
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
-		for (i in 0...options.length)
+		for (i in 0...menuOptions.length)
 		{
 			var optionText:Alphabet = new Alphabet(
 				0,
 				0,
-				Language.getPhrase('options_${options[i]}', options[i]),
+				Language.getPhrase('options_${menuOptions[i]}', menuOptions[i]),
 				true
 			);
 
-			optionText.screenCenter();
-			optionText.y += (100 * (i - (options.length / 2))) + 50;
+			optionText.scale.set(0.85, 0.85);
+			optionText.updateHitbox();
 
-			// Required for scrolling
+			optionText.screenCenter();
+			optionText.y += (80 * (i - (menuOptions.length / 2))) + 40;
+
 			optionText.isMenuItem = true;
 			optionText.targetY = i - curSelected;
 
@@ -95,15 +110,18 @@ class OptionsState extends MusicBeatState
 		}
 
 		selectorLeft = new Alphabet(0, 0, '>', true);
+		selectorLeft.scale.set(0.8, 0.8);
+		selectorLeft.updateHitbox();
 		add(selectorLeft);
 
 		selectorRight = new Alphabet(0, 0, '<', true);
+		selectorRight.scale.set(0.8, 0.8);
+		selectorRight.updateHitbox();
 		add(selectorRight);
 
 		changeSelection();
 
 		ClientPrefs.saveSettings();
-
 		super.create();
 	}
 
@@ -132,7 +150,7 @@ class OptionsState extends MusicBeatState
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 
-			if(onPlayState)
+			if (onPlayState)
 			{
 				StageData.loadDirectory(PlayState.SONG);
 				LoadingState.loadAndSwitchState(new PlayState());
@@ -145,33 +163,39 @@ class OptionsState extends MusicBeatState
 		}
 		else if (controls.ACCEPT)
 		{
-			openSelectedSubstate(options[curSelected]);
+			openSelectedSubstate(menuOptions[curSelected]);
 		}
 	}
 
 	function changeSelection(change:Int = 0)
 	{
-		curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
+		curSelected = FlxMath.wrap(curSelected + change, 0, menuOptions.length - 1);
 
-		var bullShit:Int = 0;
+		var index:Int = 0;
 
 		for (item in grpOptions.members)
 		{
-			item.targetY = bullShit - curSelected;
-			bullShit++;
+			if (item == null)
+			{
+				index++;
+				continue;
+			}
 
+			item.targetY = index - curSelected;
 			item.alpha = 0.6;
 
 			if (item.targetY == 0)
 			{
 				item.alpha = 1;
 
-				selectorLeft.x = item.x - 63;
+				selectorLeft.x = item.x - 55;
 				selectorLeft.y = item.y;
 
-				selectorRight.x = item.x + item.width + 15;
+				selectorRight.x = item.x + item.width + 10;
 				selectorRight.y = item.y;
 			}
+
+			index++;
 		}
 
 		FlxG.sound.play(Paths.sound('scrollMenu'));
