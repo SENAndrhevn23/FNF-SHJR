@@ -417,7 +417,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
 			note.scrollFactor.set();
 			note.playAnim('static');
-			note.alpha = getNoteDisplayAlpha(note.strumTime, true);
+			note.alpha = showNotes ? noteAlpha * 0.4 : 0;
 			note.updateHitbox();
 			if(note.width > note.height)
 				note.setGraphicSize(GRID_SIZE);
