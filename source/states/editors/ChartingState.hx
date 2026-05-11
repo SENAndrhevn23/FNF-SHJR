@@ -2091,41 +2091,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		return swagEvent;
 	}
 
-	function ensureSectionExists(targetSec:Int, ?templateSec:Int = -1):Void
-	{
-		if(PlayState.SONG == null || targetSec < 0) return;
-
-		var template:Dynamic = null;
-		if(templateSec >= 0 && templateSec < PlayState.SONG.notes.length)
-			template = PlayState.SONG.notes[templateSec];
-		else if(PlayState.SONG.notes.length > 0)
-			template = PlayState.SONG.notes[PlayState.SONG.notes.length - 1];
-
-		while(PlayState.SONG.notes.length <= targetSec)
-		{
-			var newSection:Dynamic = template != null ? Reflect.copy(template) : {
-				sectionNotes: [],
-				sectionBeats: 4,
-				mustHitSection: true,
-				bpm: PlayState.SONG.bpm,
-				changeBPM: false,
-				altAnim: false,
-				gfSection: false
-			};
-
-			newSection.sectionNotes = [];
-			if(template != null)
-			{
-				newSection.sectionBeats = template.sectionBeats;
-				newSection.mustHitSection = template.mustHitSection;
-				newSection.bpm = template.bpm;
-				newSection.changeBPM = template.changeBPM;
-				newSection.altAnim = template.altAnim;
-				newSection.gfSection = template.gfSection;
-			}
-			PlayState.SONG.notes.push(cast newSection);
-		}
-	}
 
 function insertNoteIntoSong(note:MetaNote):Void
 {
@@ -3176,40 +3141,23 @@ function addNoteStackingTab()
 				baseNotes.push(note);
 		}
 		if(baseNotes.length < 1) return;
-
 		var dupeAmount:Int = Std.int(stepperDuplicateAmount.value);
-		if(dupeAmount < 1) return;
-
 		var shiftAmount:Float = stepperShiftSteps.value * (15000 / Conductor.bpm);
-		var sourceSectionStart:Float = sectionStart;
-		var firstNewSection:Int = PlayState.SONG.notes.length;
 		var added:Array<MetaNote> = [];
-
-		for (i in 0...dupeAmount)
-			ensureSectionExists(firstNewSection + i, curSec);
-
-		_cacheSections();
-
-		for (i in 0...dupeAmount)
+		for (_i in 1...dupeAmount + 1)
 		{
-			var targetSec:Int = firstNewSection + i;
-			var targetSectionStart:Float = cachedSectionTimes[targetSec];
 			for (note in baseNotes)
 			{
 				var songDataCopy:Array<Dynamic> = note.songData.copy();
-				var newNote:MetaNote = createNote(songDataCopy, targetSec);
-				newNote.setStrumTime(targetSectionStart + (note.strumTime - sourceSectionStart) + (shiftAmount * i));
-				positionNoteYOnTime(newNote, targetSec);
+				var newNote:MetaNote = createNote(songDataCopy, curSec);
+				newNote.setStrumTime(note.strumTime + (shiftAmount * _i));
+				positionNoteYOnTime(newNote, curSec);
 				insertNoteIntoSong(newNote);
 				added.push(newNote);
 			}
 		}
-
 		notes.sort(PlayState.sortByTime);
-		updateChartData();
-		_cacheSections();
-		softReloadNotes();
-		loadSection(firstNewSection);
+		softReloadNotes(true);
 		if(added.length > 0) addUndoAction(ADD_NOTE, {notes: added});
 	});
 	dupeNotesButton.resize(80, 24);
