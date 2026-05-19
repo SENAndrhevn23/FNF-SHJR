@@ -57,6 +57,7 @@ class SaveVariables
 
 	public var ghostTapping:Bool = true;
 	public var timeBarType:String = 'Time Left';
+	public var iconBounceType:String = 'Golden Apple';
 	public var scoreZoom:Bool = true;
 	public var noReset:Bool = false;
 	public var healthBarAlpha:Float = 1;
