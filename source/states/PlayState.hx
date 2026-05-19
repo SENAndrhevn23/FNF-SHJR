@@ -1473,9 +1473,9 @@ function startSong():Void
 
 	private function getNoteChainKey(noteData:Dynamic):String
 		return noteData.noteData + "|" + noteData.mustPress + "|" + noteData.noteType + "|" + noteData.parentChainTime;
-	private function createSpawnNote(noteData:Dynamic, ?parentNote:Note):Note
+	private function createSpawnNote(noteData:Dynamic, ?parentNote:Note, ?prevNote:Note):Note
 	{
-		var swagNote:Note = new Note(noteData.strumTime, noteData.noteData, parentNote, noteData.isSustainNote);
+		var swagNote:Note = new Note(noteData.strumTime, noteData.noteData, prevNote != null ? prevNote : parentNote, noteData.isSustainNote);
 		swagNote.gfNote = noteData.gfNote;
 		swagNote.animSuffix = noteData.animSuffix;
 		swagNote.mustPress = noteData.mustPress;
@@ -1498,20 +1498,20 @@ function startSong():Void
 			if (parentNote != null)
 				parentNote.tail.push(swagNote);
 			swagNote.correctionOffset = swagNote.height / 2;
-			if(parentNote != null && parentNote.isSustainNote)
+			if (prevNote != null && prevNote.isSustainNote)
 			{
 				if(!PlayState.isPixelStage)
 				{
-					parentNote.scale.y *= Note.SUSTAIN_SIZE / parentNote.frameHeight;
-					parentNote.scale.y /= playbackRate;
-					parentNote.resizeByRatio(noteData.stepCrochet / Conductor.stepCrochet);
+					prevNote.scale.y *= Note.SUSTAIN_SIZE / prevNote.frameHeight;
+					prevNote.scale.y /= playbackRate;
+					prevNote.resizeByRatio(noteData.stepCrochet / Conductor.stepCrochet);
 					if(ClientPrefs.data.downScroll)
 						swagNote.correctionOffset = 0;
 				}
 				else
 				{
-					parentNote.scale.y /= playbackRate;
-					parentNote.resizeByRatio(noteData.stepCrochet / Conductor.stepCrochet);
+					prevNote.scale.y /= playbackRate;
+					prevNote.resizeByRatio(noteData.stepCrochet / Conductor.stepCrochet);
 				}
 			}
 			else if(ClientPrefs.data.downScroll)
@@ -1533,7 +1533,10 @@ function startSong():Void
 			if (parentNote == null)
 				return;
 		}
-		var swagNote:Note = createSpawnNote(noteData, parentNote);
+		var prevNote:Note = parentNote;
+		if (noteData.isSustainNote && parentNote != null && parentNote.tail != null && parentNote.tail.length > 0)
+			prevNote = parentNote.tail[parentNote.tail.length - 1];
+		var swagNote:Note = createSpawnNote(noteData, parentNote, prevNote);
 		if (!noteData.isSustainNote)
 			spawnedNoteChains.set(chainKey, swagNote);
 		notes.add(swagNote);
@@ -2034,13 +2037,17 @@ if(ClientPrefs.data.disableGCLag)
 			var curTime:Float = Math.max(0, Conductor.songPosition - ClientPrefs.data.noteOffset);
 			songPercent = (curTime / songLength);
 
-			var songCalc:Float = (songLength - curTime);
-			if(ClientPrefs.data.timeBarType == 'Time Elapsed') songCalc = curTime;
-			var secondsTotal:Int = Math.floor(songCalc / 1000);
-			if(secondsTotal < 0) secondsTotal = 0;
-
 			if(ClientPrefs.data.timeBarType != 'Song Name')
-				timeTxt.text = FlxStringUtil.formatTime(secondsTotal, false);
+			{
+				var currentSeconds:Int = Math.floor(curTime / 1000);
+				var totalSeconds:Int = Math.floor(songLength / 1000);
+				if(currentSeconds < 0) currentSeconds = 0;
+				if(totalSeconds < 0) totalSeconds = 0;
+
+				timeTxt.text = FlxStringUtil.formatTime(currentSeconds, false)
+					+ ' / '
+					+ FlxStringUtil.formatTime(totalSeconds, false);
+			}
 		}
 		
 		// End song perfectly on time when rendering.
@@ -2120,11 +2127,8 @@ if(ClientPrefs.data.disableGCLag)
 								if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
 									goodNoteHit(daNote);
 							}
-							else if(!daNote.hitByOpponent && !daNote.ignoreNote)
-							{
-								if (daNote.wasGoodHit || (daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition)))
-									opponentNoteHit(daNote);
-							}
+							else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
+								opponentNoteHit(daNote);
 
 							if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
 							// Kill extremely late notes and cause misses
