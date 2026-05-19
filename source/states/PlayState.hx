@@ -2175,20 +2175,56 @@ if(ClientPrefs.data.disableGCLag)
 	// Health icon updaters
 	public dynamic function updateIconsScale(elapsed:Float)
 	{
-		var mult:Float = FlxMath.lerp(1, iconP1.scale.x, Math.exp(-elapsed * 9 * playbackRate));
-		iconP1.scale.set(mult, mult);
-		iconP1.updateHitbox();
+		switch (ClientPrefs.data.iconBounceType)
+		{
+			case 'Old Psych':
+				iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, FlxMath.bound(1 - (elapsed * 30), 0, 1))));
+				iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, FlxMath.bound(1 - (elapsed * 30), 0, 1))));
+				iconP1.updateHitbox();
+				iconP2.updateHitbox();
+			case 'Dave and Bambi':
+				iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.9 / playbackRate)), Std.int(FlxMath.lerp(150, iconP1.height, 0.9 / playbackRate)));
+				iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.9 / playbackRate)), Std.int(FlxMath.lerp(150, iconP2.height, 0.9 / playbackRate)));
+				iconP1.updateHitbox();
+				iconP2.updateHitbox();
+			case 'New Psych':
+				var mult:Float = FlxMath.lerp(1, iconP1.scale.x, FlxMath.bound(1 - (elapsed * 9), 0, 1));
+				iconP1.scale.set(mult, mult);
+				iconP1.updateHitbox();
 
-		var mult:Float = FlxMath.lerp(1, iconP2.scale.x, Math.exp(-elapsed * 9 * playbackRate));
-		iconP2.scale.set(mult, mult);
-		iconP2.updateHitbox();
+				mult = FlxMath.lerp(1, iconP2.scale.x, FlxMath.bound(1 - (elapsed * 9), 0, 1));
+				iconP2.scale.set(mult, mult);
+				iconP2.updateHitbox();
+			case 'Golden Apple':
+				iconP1.centerOffsets();
+				iconP2.centerOffsets();
+				iconP1.updateHitbox();
+				iconP2.updateHitbox();
+			default:
+				var mult:Float = FlxMath.lerp(1, iconP1.scale.x, Math.exp(-elapsed * 9 * playbackRate));
+				iconP1.scale.set(mult, mult);
+				iconP1.updateHitbox();
+
+				mult = FlxMath.lerp(1, iconP2.scale.x, Math.exp(-elapsed * 9 * playbackRate));
+				iconP2.scale.set(mult, mult);
+				iconP2.updateHitbox();
+		}
 	}
 
 	public dynamic function updateIconsPosition()
 	{
-		var iconOffset:Int = 26;
-		iconP1.x = healthBar.barCenter + (150 * iconP1.scale.x - 150) / 2 - iconOffset;
-		iconP2.x = healthBar.barCenter - (150 * iconP2.scale.x) / 2 - iconOffset * 2;
+		if (ClientPrefs.data.iconBounceType == 'Golden Apple')
+		{
+			var iconOffset:Int = 26;
+			iconP1.x = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01) - iconOffset);
+			iconP2.x = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
+		}
+		else
+		{
+			var iconOffset:Int = 26;
+			iconP1.x = healthBar.barCenter + (150 * iconP1.scale.x - 150) / 2 - iconOffset;
+			iconP2.x = healthBar.barCenter - (150 * iconP2.scale.x) / 2 - iconOffset * 2;
+		}
 	}
 
 	var iconsAnimations:Bool = true;
@@ -3531,8 +3567,22 @@ if (gainHealth) health += note.hitHealth * healthGain;
 		if (generatedMusic)
 			notes.sort(FlxSort.byY, ClientPrefs.data.downScroll ? FlxSort.ASCENDING : FlxSort.DESCENDING);
 
-		iconP1.scale.set(1.2, 1.2);
-		iconP2.scale.set(1.2, 1.2);
+		switch (ClientPrefs.data.iconBounceType)
+		{
+			case 'Dave and Bambi':
+				var funny:Float = (healthBar.percent * 0.01) + 0.01;
+				iconP1.setGraphicSize(Std.int(iconP1.width + (50 * funny)), Std.int(iconP1.height - (25 * funny)));
+				iconP2.setGraphicSize(Std.int(iconP2.width + (50 * (2 - funny))), Std.int(iconP2.height - (25 * (2 - funny))));
+			case 'Old Psych':
+				iconP1.setGraphicSize(Std.int(iconP1.width + 30));
+				iconP2.setGraphicSize(Std.int(iconP2.width + 30));
+			case 'New Psych':
+				iconP1.scale.set(1.2, 1.2);
+				iconP2.scale.set(1.2, 1.2);
+			default:
+				iconP1.scale.set(1.2, 1.2);
+				iconP2.scale.set(1.2, 1.2);
+		}
 
 		iconP1.updateHitbox();
 		iconP2.updateHitbox();
