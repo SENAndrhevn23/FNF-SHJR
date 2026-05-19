@@ -2,13 +2,14 @@ package options;
 
 import backend.ClientPrefs;
 import backend.Language;
-import backend.MusicBeatState;
 import backend.Paths;
 import backend.StageData;
+
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+
 import states.MainMenuState;
 import states.PlayState;
 
@@ -39,36 +40,42 @@ class OptionsState extends MusicBeatState
 		switch(label)
 		{
 			case 'Note Colors':
-				openSubState(new NotesColorSubState());
+				openSubState(new options.NotesColorSubState());
 
 			case 'Controls':
-				openSubState(new ControlsSubState());
+				openSubState(new options.ControlsSubState());
 
 			case 'Graphics':
-				openSubState(new GraphicsSettingsSubState());
+				openSubState(new options.GraphicsSettingsSubState());
 
 			case 'Optimizations':
-				openSubState(new OptimizationsSubState());
+				openSubState(new options.OptimizationsSubState());
 
 			case 'Video Rendering':
-				openSubState(new VideoRenderingSubState());
+				openSubState(new options.VideoRenderingSubState());
 
 			case 'Visuals':
-				openSubState(new VisualsSettingsSubState());
+				openSubState(new options.VisualsSettingsSubState());
 
 			case 'Gameplay':
-				openSubState(new GameplaySettingsSubState());
+				openSubState(new options.GameplaySettingsSubState());
 
 			case 'Adjust Delay and Combo':
-				MusicBeatState.switchState(new NoteOffsetState());
+				MusicBeatState.switchState(new options.NoteOffsetState());
 
+			#if TRANSLATIONS_ALLOWED
 			case 'Language':
-				openSubState(new LanguageSubState());
+				openSubState(new options.LanguageSubState());
+			#end
 		}
 	}
 
 	override function create()
 	{
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence("Options Menu", null);
+		#end
+
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		bg.color = 0xFFea71fd;
@@ -79,39 +86,23 @@ class OptionsState extends MusicBeatState
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
-		for (i in 0...options.length)
+		for (num => option in options)
 		{
-			var optionText:Alphabet = new Alphabet(
-				0,
-				0,
-				Language.getPhrase('options_${options[i]}', options[i]),
-				true
-			);
-
+			var optionText:Alphabet = new Alphabet(0, 0, Language.getPhrase('options_$option', option), true);
 			optionText.screenCenter();
-			optionText.y += (100 * (i - (options.length / 2))) + 50;
-			optionText.scale.set(0.8, 0.8);
-			optionText.updateHitbox();
-
-			optionText.isMenuItem = true;
-			optionText.targetY = i - curSelected;
-
+			optionText.y += (92 * (num - (options.length / 2))) + 45;
 			grpOptions.add(optionText);
 		}
 
 		selectorLeft = new Alphabet(0, 0, '>', true);
-		selectorLeft.scale.set(0.8, 0.8);
-		selectorLeft.updateHitbox();
 		add(selectorLeft);
 
 		selectorRight = new Alphabet(0, 0, '<', true);
-		selectorRight.scale.set(0.8, 0.8);
-		selectorRight.updateHitbox();
 		add(selectorRight);
 
 		changeSelection();
-
 		ClientPrefs.saveSettings();
+
 		super.create();
 	}
 
@@ -119,6 +110,10 @@ class OptionsState extends MusicBeatState
 	{
 		super.closeSubState();
 		ClientPrefs.saveSettings();
+
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence("Options Menu", null);
+		#end
 	}
 
 	override function update(elapsed:Float)
@@ -135,16 +130,14 @@ class OptionsState extends MusicBeatState
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 
-			if(onPlayState)
+			if (onPlayState)
 			{
 				StageData.loadDirectory(PlayState.SONG);
-				FlxG.switchState(new PlayState());
+				LoadingState.loadAndSwitchState(new PlayState());
 				FlxG.sound.music.volume = 0;
 			}
 			else
-			{
-				FlxG.switchState(new MainMenuState());
-			}
+				MusicBeatState.switchState(new MainMenuState());
 		}
 		else if (controls.ACCEPT)
 		{
@@ -156,24 +149,19 @@ class OptionsState extends MusicBeatState
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
 
-		var bullShit:Int = 0;
-
-		for (item in grpOptions.members)
+		for (num => item in grpOptions.members)
 		{
-			if (item == null) continue;
+			if (item == null)
+				continue;
 
-			item.targetY = bullShit - curSelected;
-			bullShit++;
-
+			item.targetY = num - curSelected;
 			item.alpha = 0.6;
 
 			if (item.targetY == 0)
 			{
 				item.alpha = 1;
-
 				selectorLeft.x = item.x - 63;
 				selectorLeft.y = item.y;
-
 				selectorRight.x = item.x + item.width + 15;
 				selectorRight.y = item.y;
 			}
